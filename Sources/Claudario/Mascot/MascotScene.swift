@@ -20,7 +20,12 @@ final class MascotScene: SKScene {
 
     private var mascotSize: CGFloat = 44
     private var colorIndex: Int = 0
+    private var variantIndex: Int = 0
     private(set) var currentActivity: MascotActivity = .idle
+
+    private var variant: MascotVariant {
+        MascotVariant.allCases[max(0, min(variantIndex, MascotVariant.allCases.count - 1))]
+    }
 
     private let baseWalkSpeed: CGFloat = 110
     private var walkSpeed: CGFloat { baseWalkSpeed * currentActivity.speedMultiplier.nonZeroOr(1) }
@@ -38,10 +43,11 @@ final class MascotScene: SKScene {
     private var userMoveDirection: CGFloat = 0
     private(set) var state: MascotState = .idle
 
-    init(initialSize: Int, initialColorIndex: Int) {
+    init(initialSize: Int, initialColorIndex: Int, initialVariantIndex: Int) {
         super.init(size: CGSize(width: 1, height: 1))
         self.mascotSize = CGFloat(initialSize)
         self.colorIndex = initialColorIndex
+        self.variantIndex = initialVariantIndex
         anchorPoint = .zero
         backgroundColor = .clear
         addChildNodes()
@@ -50,7 +56,8 @@ final class MascotScene: SKScene {
 
     convenience override init() {
         self.init(initialSize: MascotSettings.defaultSize,
-                  initialColorIndex: MascotSettings.defaultColorIndex)
+                  initialColorIndex: MascotSettings.defaultColorIndex,
+                  initialVariantIndex: MascotSettings.defaultVariantIndex)
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -102,10 +109,11 @@ final class MascotScene: SKScene {
     private func rebuildMascot() {
         let s = mascotSize
         let palette = MascotPalette.colors[max(0, min(colorIndex, MascotPalette.colors.count - 1))]
+        let v = variant
+        let eyeY = v.eyeY(size: s)
+        let footY = v.footY(size: s)
 
-        body.path = CGPath(
-            roundedRect: CGRect(x: -s / 2, y: 0, width: s, height: s),
-            cornerWidth: s * 0.3, cornerHeight: s * 0.3, transform: nil)
+        body.path = v.bodyPath(size: s)
         body.fillColor = palette.body
 
         let eyeR: CGFloat = s * 0.12
@@ -114,8 +122,8 @@ final class MascotScene: SKScene {
             transform: nil)
         leftEye.path = eyePath
         rightEye.path = eyePath
-        leftEye.position = CGPoint(x: -s * 0.2, y: s * 0.7)
-        rightEye.position = CGPoint(x: s * 0.2, y: s * 0.7)
+        leftEye.position = CGPoint(x: -s * 0.2, y: eyeY)
+        rightEye.position = CGPoint(x: s * 0.2, y: eyeY)
 
         let pupilR: CGFloat = eyeR * 0.55
         let pupilPath = CGPath(
@@ -123,8 +131,8 @@ final class MascotScene: SKScene {
             transform: nil)
         leftPupil.path = pupilPath
         rightPupil.path = pupilPath
-        leftPupil.position = CGPoint(x: -s * 0.2 + pupilR * 0.3, y: s * 0.7)
-        rightPupil.position = CGPoint(x: s * 0.2 + pupilR * 0.3, y: s * 0.7)
+        leftPupil.position = CGPoint(x: -s * 0.2 + pupilR * 0.3, y: eyeY)
+        rightPupil.position = CGPoint(x: s * 0.2 + pupilR * 0.3, y: eyeY)
 
         let footW: CGFloat = s * 0.28, footH: CGFloat = s * 0.14
         let footPath = CGPath(
@@ -134,8 +142,8 @@ final class MascotScene: SKScene {
         rightFoot.path = footPath
         leftFoot.fillColor = palette.foot
         rightFoot.fillColor = palette.foot
-        leftFoot.position = CGPoint(x: -s * 0.2, y: 0)
-        rightFoot.position = CGPoint(x: s * 0.2, y: 0)
+        leftFoot.position = CGPoint(x: -s * 0.2, y: footY)
+        rightFoot.position = CGPoint(x: s * 0.2, y: footY)
 
         propLabel.fontSize = s * 0.5
         propLabel.position = CGPoint(x: 0, y: s * 1.15)
@@ -281,6 +289,19 @@ final class MascotScene: SKScene {
         rightFoot.fillColor = palette.foot
     }
 
+    func setVariant(index: Int) {
+        let count = MascotVariant.allCases.count
+        guard count > 0 else { return }
+        let normalized = ((index % count) + count) % count
+        guard normalized != variantIndex else { return }
+        variantIndex = normalized
+        rebuildMascot()
+        // rebuildMascot resets eye/foot positions for the new silhouette;
+        // re-apply the current activity so its decoration (pupil scan, blink,
+        // squash, etc.) re-anchors to the new eyeY.
+        applyActivityDecoration()
+    }
+
     private func applyActivityDecoration() {
         // Reset prior decoration state — both the actions and any leftover
         // transform/position offset they may have accumulated.
@@ -298,8 +319,9 @@ final class MascotScene: SKScene {
         // Reset pupil positions to nominal (rebuildMascot already centers them)
         let s = mascotSize
         let pupilR = s * 0.12 * 0.55
-        leftPupil.position = CGPoint(x: -s * 0.2 + pupilR * 0.3, y: s * 0.7)
-        rightPupil.position = CGPoint(x: s * 0.2 + pupilR * 0.3, y: s * 0.7)
+        let eyeY = variant.eyeY(size: s)
+        leftPupil.position = CGPoint(x: -s * 0.2 + pupilR * 0.3, y: eyeY)
+        rightPupil.position = CGPoint(x: s * 0.2 + pupilR * 0.3, y: eyeY)
 
         switch currentActivity {
         case .idle:

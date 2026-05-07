@@ -168,6 +168,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         Color:
           c               cycle to next color (10 total)
 
+        Variant:
+          v               cycle mascot shape (5 total)
+
         Esc, click outside, app-switch, or any incoming
         Claude activity releases control.
         """

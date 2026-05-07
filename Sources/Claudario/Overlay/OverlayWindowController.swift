@@ -23,6 +23,7 @@ private enum KeyCode {
     static let comma:  UInt16 = 43   // ','  and  '<'
     static let period: UInt16 = 47   // '.'  and  '>'
     static let c:      UInt16 = 8
+    static let v:      UInt16 = 9
 
     static let activityKeys: [UInt16] = [n1, n2, n3, n4, n5, n6, n7, n8, n9, n0]
 }
@@ -47,7 +48,8 @@ final class OverlayWindowController: NSObject,
         self.onUserJump = onUserJump
         self.scene = MascotScene(
             initialSize: settings.size,
-            initialColorIndex: settings.colorIndex
+            initialColorIndex: settings.colorIndex,
+            initialVariantIndex: settings.variantIndex
         )
         super.init()
         self.scene.sceneDelegate = self
@@ -154,6 +156,9 @@ final class OverlayWindowController: NSObject,
         case KeyCode.c:
             guard !isRepeat else { return }
             scene.setColor(index: settings.cycleColor())
+        case KeyCode.v:
+            guard !isRepeat else { return }
+            scene.setVariant(index: settings.cycleVariant())
         default:
             if let idx = KeyCode.activityKeys.firstIndex(of: keyCode),
                idx < MascotActivity.allCases.count {
