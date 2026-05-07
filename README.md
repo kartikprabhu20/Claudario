@@ -30,9 +30,13 @@ questions, idle reminders).
 ## What you get
 
 - Menu-bar app (no Dock icon — `LSUIElement = true`).
-- Transparent, click-through overlay window pinned to the Dock area.
+- Transparent, click-through overlay window pinned to the Dock area
+  (strip height is 2× the Dock height to give the mascot headroom for
+  jumps and tall activity props).
 - Procedurally-drawn mascot:
-  - **Idle** when no Claude session is active.
+  - **Idle** when no Claude session is active — blinks every few
+    seconds and glances left/right on a non-metronomic rhythm so it
+    doesn't look frozen.
   - **Walks back and forth** while Claude is processing.
   - **Tool-aware activities** — different prop emoji + motion for
     *reading* (`📖`), *coding* (`⌨️`), *running* (`⚡`), *browsing*
@@ -97,6 +101,7 @@ Uninstall Claude Code Hooks
 Test: Walk + Jump
 Test: Notify
 ─────────────────────────────────
+Show Controls…
 About Claudario
 ─────────────────────────────────
 Quit
@@ -104,7 +109,9 @@ Quit
 
 Try **Test: Walk + Jump** first — the mascot should walk for ~4 seconds
 and then jump with a chime. **Test: Notify** does the bounce + tone.
-This verifies the renderer and audio path before you wire up Claude Code.
+**Show Controls…** opens a dialog listing every key binding for
+interactive mode. These verify the renderer and audio path before you
+wire up Claude Code.
 
 ---
 
@@ -304,14 +311,17 @@ a new terminal and type `claude`.
 │                                                                      │
 │   ┌──────────────┐     ┌─────────────┐    ┌────────────────────────┐ │
 │   │ EventServer  ├────►│ EventRouter ├───►│ MascotScene (SpriteKit)│ │
-│   │ NWListener   │     │ state by    │    │  walking / idle /      │ │
-│   │ loopback:port│     │ session_id  │    │  jump / bounce         │ │
+│   │ NWListener   │     │ state +     │    │  state: idle/walking/  │ │
+│   │ loopback:port│     │ activity    │    │         controlled     │ │
+│   │              │     │ per session │    │  activity: 10 visuals  │ │
 │   └──────────────┘     └─────────────┘    └────────────────────────┘ │
-│                                              │                        │
-│                                              ▼                        │
-│                                        OverlayWindow                  │
-│                                        (transparent, click-through,   │
-│                                         level=popUpMenu, above Dock)  │
+│                              ▲                  │                     │
+│                              │                  ▼                     │
+│                   ┌──────────┴───────┐    OverlayWindow               │
+│                   │ MascotSettings   │    (transparent, click-through,│
+│                   │ (UserDefaults:   │    level=popUpMenu, 2× Dock    │
+│                   │  size, color)    │    height for headroom)       │
+│                   └──────────────────┘                                │
 │                                                                       │
 │   ┌──────────────┐                                                   │
 │   │ SoundPlayer  │   plays NSSound("Glass")  on coin                 │
@@ -338,7 +348,7 @@ a new terminal and type `claude`.
 | `Overlay/OverlayWindowController.swift`  | Re-positions the window; owns the click-to-control lifecycle, key map, and global mouse monitor. |
 | `Overlay/InteractiveContentView.swift`   | Hit-tests the mascot region (so the rest stays click-through) and routes mouse / key events.    |
 | `Mascot/MascotState.swift`               | `enum MascotState { idle, walking, controlled }`.                                    |
-| `Mascot/MascotActivity.swift`            | `enum MascotActivity` (10 cases) + `prop` emoji, speed multiplier, tool→activity map.|
+| `Mascot/MascotActivity.swift`            | `enum MascotActivity` (10 cases including `.idle` aliveness) + `prop` emoji, speed multiplier, tool→activity map. |
 | `Mascot/MascotPalette.swift`             | 10 named `(body, foot)` color tuples.                                                |
 | `Mascot/MascotScene.swift`               | SpriteKit scene; draws procedurally; supports live size/color/activity changes.      |
 | `Server/EventServer.swift`               | NWListener bound to `.loopback`, parses minimal HTTP/1.1 POSTs.                      |
@@ -390,6 +400,18 @@ tool events — `tool_name` and `tool_input`. We currently use
 
 Mapping lives in `MascotActivity.category(forTool:)`. Unknown / future
 tools fall through to `thinking`.
+
+Two activities never come from hooks — they're test-only previews:
+
+| Activity      | Prop  | Trigger                              |
+| ------------- | ----- | ------------------------------------ |
+| `compacting`  | 🌀    | `PreCompact` event, **or** key `9`   |
+| `dancing`     | 🎉    | key `0` (no hook ever produces this) |
+
+And one activity has no prop emoji at all but still has a visible
+animation — `idle` makes the mascot blink (≈3–6 s cadence with the
+occasional double-blink) and glance left/right on a separate ≈2–5 s
+rhythm so it doesn't look frozen between Claude turns.
 
 ### Why a single bash script for every event
 
@@ -634,9 +656,9 @@ disappears when you full-screen something), drop the level in
 2. Confirm the menu-bar icon is there (top-right corner).
 3. From the menu, click **Test: Walk + Jump**. If you don't see
    anything, the overlay window is the problem (level / position).
-4. If the Dock is on the left or right, v1 falls back to a fixed
-   80 pt strip along the bottom — the mascot is there, not next to
-   the Dock.
+4. If the Dock is on the left or right, Claudario falls back to a
+   fixed 160 pt (2 × 80 pt) strip along the bottom — the mascot is
+   there, not next to the Dock.
 
 ### Hooks don't fire when I run `claude`
 
@@ -699,8 +721,8 @@ Backups of `settings.json` taken at install time remain at
 - **Main screen only** — multi-monitor support is on the to-do list.
   The window pins to `NSScreen.main`.
 - **Side-Dock fallback** — if your Dock is on the left or right,
-  Claudario draws on a fixed 80 pt bottom strip rather than next to
-  the Dock.
+  Claudario draws on a fixed 160 pt (2 × 80 pt fallback) bottom strip
+  rather than next to the Dock.
 - **Procedural art** — the mascot is drawn with `SKShapeNode`s, not
   sprite-sheet pixel art. Easy to replace; see
   [Customization](#customization).
