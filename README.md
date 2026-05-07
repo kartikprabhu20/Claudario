@@ -1,6 +1,6 @@
 # Claudario
 
-<video src="https://raw.githubusercontent.com/kartikprabhu20/Claudario/main/src/mascot_demo.mp4" width="100%" autoplay loop muted playsinline>
+<video src="https://github.com/user-attachments/assets/084a2b5d-64a8-488c-b7d7-0db7a1ab9aa4" width="100%" autoplay loop muted playsinline>
 </video>
 
 A small mascot that walks above your Dock while Claude Code is working.
