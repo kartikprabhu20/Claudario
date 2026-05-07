@@ -1,0 +1,9 @@
+#!/bin/bash
+# Claudario hook bridge — POSTs Claude Code hook payloads to the running app.
+# Failures are silenced and the timeout is short, so this never blocks Claude Code.
+PORT_FILE="$HOME/.claudario/port"
+PORT="$(cat "$PORT_FILE" 2>/dev/null || echo 47821)"
+exec curl -s -m 1 -X POST \
+    -H "Content-Type: application/json" \
+    --data-binary @- \
+    "http://127.0.0.1:$PORT/event" >/dev/null 2>&1 || true
