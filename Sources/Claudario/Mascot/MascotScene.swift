@@ -16,23 +16,41 @@ final class MascotScene: SKScene {
     private let rightPupil = SKShapeNode()
     private let leftFoot = SKShapeNode()
     private let rightFoot = SKShapeNode()
+    private let propLabel = SKLabelNode()
 
-    private let mascotSize: CGFloat = 44
-    private let walkSpeed: CGFloat = 110
+    private var mascotSize: CGFloat = 44
+    private var colorIndex: Int = 0
+    private(set) var currentActivity: MascotActivity = .idle
+
+    private let baseWalkSpeed: CGFloat = 110
+    private var walkSpeed: CGFloat { baseWalkSpeed * currentActivity.speedMultiplier.nonZeroOr(1) }
+
     private let walkActionKey = "walk"
     private let userMoveActionKey = "userMove"
     private let footActionKey = "feet"
     private let jumpActionKey = "jump"
+    private let decorationActionKey = "decoration"
+    private let bodySquashKey = "bodySquash"
+    private let eyeActionKey = "eye"
+    private let pupilActionKey = "pupil"
 
     private var direction: CGFloat = 1
     private var userMoveDirection: CGFloat = 0
     private(set) var state: MascotState = .idle
 
-    override init() {
+    init(initialSize: Int, initialColorIndex: Int) {
         super.init(size: CGSize(width: 1, height: 1))
+        self.mascotSize = CGFloat(initialSize)
+        self.colorIndex = initialColorIndex
         anchorPoint = .zero
         backgroundColor = .clear
-        buildMascot()
+        addChildNodes()
+        rebuildMascot()
+    }
+
+    convenience override init() {
+        self.init(initialSize: MascotSettings.defaultSize,
+                  initialColorIndex: MascotSettings.defaultColorIndex)
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -46,65 +64,80 @@ final class MascotScene: SKScene {
         clampCurrentX()
     }
 
-    private func buildMascot() {
-        let s = mascotSize
-
-        let bodyRect = CGRect(x: -s / 2, y: 0, width: s, height: s)
-        body.path = CGPath(roundedRect: bodyRect, cornerWidth: s * 0.3, cornerHeight: s * 0.3, transform: nil)
-        body.fillColor = NSColor(calibratedRed: 0.95, green: 0.55, blue: 0.25, alpha: 1.0)
-        body.strokeColor = NSColor.black.withAlphaComponent(0.45)
+    private func addChildNodes() {
         body.lineWidth = 1.5
+        body.strokeColor = NSColor.black.withAlphaComponent(0.45)
         mascotNode.addChild(body)
 
+        for eye in [leftEye, rightEye] {
+            eye.fillColor = .white
+            eye.strokeColor = NSColor.black.withAlphaComponent(0.6)
+            eye.lineWidth = 1
+            mascotNode.addChild(eye)
+        }
+        for pupil in [leftPupil, rightPupil] {
+            pupil.fillColor = .black
+            pupil.strokeColor = .clear
+            mascotNode.addChild(pupil)
+        }
+        for foot in [leftFoot, rightFoot] {
+            foot.strokeColor = NSColor.black.withAlphaComponent(0.5)
+            foot.lineWidth = 1
+            mascotNode.addChild(foot)
+        }
+
+        propLabel.verticalAlignmentMode = .center
+        propLabel.horizontalAlignmentMode = .center
+        propLabel.zPosition = 10
+        propLabel.isHidden = true
+        mascotNode.addChild(propLabel)
+
+        addChild(mascotNode)
+    }
+
+    private func rebuildMascot() {
+        let s = mascotSize
+        let palette = MascotPalette.colors[max(0, min(colorIndex, MascotPalette.colors.count - 1))]
+
+        body.path = CGPath(
+            roundedRect: CGRect(x: -s / 2, y: 0, width: s, height: s),
+            cornerWidth: s * 0.3, cornerHeight: s * 0.3, transform: nil)
+        body.fillColor = palette.body
+
         let eyeR: CGFloat = s * 0.12
-        let eyeRect = CGRect(x: -eyeR, y: -eyeR, width: 2 * eyeR, height: 2 * eyeR)
-        let eyePath = CGPath(ellipseIn: eyeRect, transform: nil)
-        configureEye(leftEye, path: eyePath, at: CGPoint(x: -s * 0.2, y: s * 0.7))
-        configureEye(rightEye, path: eyePath, at: CGPoint(x: s * 0.2, y: s * 0.7))
-        mascotNode.addChild(leftEye)
-        mascotNode.addChild(rightEye)
+        let eyePath = CGPath(
+            ellipseIn: CGRect(x: -eyeR, y: -eyeR, width: 2 * eyeR, height: 2 * eyeR),
+            transform: nil)
+        leftEye.path = eyePath
+        rightEye.path = eyePath
+        leftEye.position = CGPoint(x: -s * 0.2, y: s * 0.7)
+        rightEye.position = CGPoint(x: s * 0.2, y: s * 0.7)
 
         let pupilR: CGFloat = eyeR * 0.55
-        let pupilRect = CGRect(x: -pupilR, y: -pupilR, width: 2 * pupilR, height: 2 * pupilR)
-        let pupilPath = CGPath(ellipseIn: pupilRect, transform: nil)
-        configurePupil(leftPupil, path: pupilPath, at: CGPoint(x: -s * 0.2 + pupilR * 0.3, y: s * 0.7))
-        configurePupil(rightPupil, path: pupilPath, at: CGPoint(x: s * 0.2 + pupilR * 0.3, y: s * 0.7))
-        mascotNode.addChild(leftPupil)
-        mascotNode.addChild(rightPupil)
+        let pupilPath = CGPath(
+            ellipseIn: CGRect(x: -pupilR, y: -pupilR, width: 2 * pupilR, height: 2 * pupilR),
+            transform: nil)
+        leftPupil.path = pupilPath
+        rightPupil.path = pupilPath
+        leftPupil.position = CGPoint(x: -s * 0.2 + pupilR * 0.3, y: s * 0.7)
+        rightPupil.position = CGPoint(x: s * 0.2 + pupilR * 0.3, y: s * 0.7)
 
         let footW: CGFloat = s * 0.28, footH: CGFloat = s * 0.14
         let footPath = CGPath(
             roundedRect: CGRect(x: -footW / 2, y: -footH, width: footW, height: footH),
             cornerWidth: footH / 2, cornerHeight: footH / 2, transform: nil)
-        configureFoot(leftFoot, path: footPath, at: CGPoint(x: -s * 0.2, y: 0))
-        configureFoot(rightFoot, path: footPath, at: CGPoint(x: s * 0.2, y: 0))
-        mascotNode.addChild(leftFoot)
-        mascotNode.addChild(rightFoot)
+        leftFoot.path = footPath
+        rightFoot.path = footPath
+        leftFoot.fillColor = palette.foot
+        rightFoot.fillColor = palette.foot
+        leftFoot.position = CGPoint(x: -s * 0.2, y: 0)
+        rightFoot.position = CGPoint(x: s * 0.2, y: 0)
 
-        addChild(mascotNode)
-    }
+        propLabel.fontSize = s * 0.5
+        propLabel.position = CGPoint(x: 0, y: s * 1.15)
 
-    private func configureEye(_ node: SKShapeNode, path: CGPath, at point: CGPoint) {
-        node.path = path
-        node.fillColor = .white
-        node.strokeColor = NSColor.black.withAlphaComponent(0.6)
-        node.lineWidth = 1
-        node.position = point
-    }
-
-    private func configurePupil(_ node: SKShapeNode, path: CGPath, at point: CGPoint) {
-        node.path = path
-        node.fillColor = .black
-        node.strokeColor = .clear
-        node.position = point
-    }
-
-    private func configureFoot(_ node: SKShapeNode, path: CGPath, at point: CGPoint) {
-        node.path = path
-        node.fillColor = NSColor(calibratedRed: 0.45, green: 0.22, blue: 0.08, alpha: 1.0)
-        node.strokeColor = NSColor.black.withAlphaComponent(0.5)
-        node.lineWidth = 1
-        node.position = point
+        positionAtStart()
+        clampCurrentX()
     }
 
     private func positionAtStart() {
@@ -117,31 +150,39 @@ final class MascotScene: SKScene {
         }
     }
 
+    // MARK: - State
+
     func setState(_ newState: MascotState) {
         guard newState != state else { return }
-        let previous = state
         state = newState
         switch state {
         case .idle:
-            mascotNode.removeAction(forKey: walkActionKey)
-            mascotNode.removeAction(forKey: userMoveActionKey)
-            stopFootAnimation()
+            clearAutoMotion()
             userMoveDirection = 0
         case .walking:
             mascotNode.removeAction(forKey: userMoveActionKey)
             userMoveDirection = 0
-            startWalking()
+            startAutoMotionForActivity()
         case .controlled:
-            mascotNode.removeAction(forKey: walkActionKey)
-            stopFootAnimation()
+            clearAutoMotion()
         }
         sceneDelegate?.mascotScene(self, didChangeStateTo: state)
-        _ = previous  // explicit ignore; reserved for future transition logic
     }
 
-    private func startWalking() {
-        startFootAnimation()
-        scheduleNextLeg()
+    private func clearAutoMotion() {
+        mascotNode.removeAction(forKey: walkActionKey)
+        stopFootAnimation()
+        mascotNode.zRotation = 0
+        positionAtStart()
+    }
+
+    private func startAutoMotionForActivity() {
+        let mult = currentActivity.speedMultiplier
+        if mult > 0 {
+            startFootAnimation()
+            scheduleNextLeg()
+        }
+        // mult == 0 → decoration handles motion; nothing else to do here
     }
 
     private func scheduleNextLeg() {
@@ -197,9 +238,146 @@ final class MascotScene: SKScene {
         mascotNode.run(SKAction.sequence([up, down, up, down]))
     }
 
+    // MARK: - Activity / customization
+
+    func setActivity(_ activity: MascotActivity) {
+        guard currentActivity != activity else { return }
+        currentActivity = activity
+        propLabel.text = activity.prop
+        propLabel.isHidden = activity.prop.isEmpty
+        applyActivityDecoration()
+        if state == .walking {
+            mascotNode.removeAction(forKey: walkActionKey)
+            startAutoMotionForActivity()
+        }
+    }
+
+    func setSize(points: Int) {
+        let clamped = CGFloat(max(MascotSettings.sizeRange.first!,
+                                  min(MascotSettings.sizeRange.last!, points)))
+        guard abs(clamped - mascotSize) > 0.5 else { return }
+        mascotSize = clamped
+        rebuildMascot()
+    }
+
+    func setColor(index: Int) {
+        let count = MascotPalette.colors.count
+        guard count > 0 else { return }
+        let normalized = ((index % count) + count) % count
+        guard normalized != colorIndex else { return }
+        colorIndex = normalized
+        let palette = MascotPalette.colors[normalized]
+        body.fillColor = palette.body
+        leftFoot.fillColor = palette.foot
+        rightFoot.fillColor = palette.foot
+    }
+
+    private func applyActivityDecoration() {
+        // Reset prior decoration state — both the actions and any leftover
+        // transform/position offset they may have accumulated.
+        mascotNode.removeAction(forKey: decorationActionKey)
+        body.removeAction(forKey: bodySquashKey)
+        for n in [leftEye, rightEye] { n.removeAction(forKey: eyeActionKey) }
+        for n in [leftPupil, rightPupil] { n.removeAction(forKey: pupilActionKey) }
+        mascotNode.zRotation = 0
+        mascotNode.position.y = max(4, (size.height - mascotSize) * 0.25)
+        body.xScale = 1
+        body.yScale = 1
+        body.zRotation = 0
+        leftEye.yScale = 1
+        rightEye.yScale = 1
+        // Reset pupil positions to nominal (rebuildMascot already centers them)
+        let s = mascotSize
+        let pupilR = s * 0.12 * 0.55
+        leftPupil.position = CGPoint(x: -s * 0.2 + pupilR * 0.3, y: s * 0.7)
+        rightPupil.position = CGPoint(x: s * 0.2 + pupilR * 0.3, y: s * 0.7)
+
+        switch currentActivity {
+        case .idle:
+            break
+
+        case .thinking:
+            let bob = SKAction.sequence([
+                SKAction.moveBy(x: 0, y: 4, duration: 0.6),
+                SKAction.moveBy(x: 0, y: -4, duration: 0.6),
+            ])
+            mascotNode.run(.repeatForever(bob), withKey: decorationActionKey)
+
+        case .reading:
+            let scan = SKAction.sequence([
+                SKAction.moveBy(x: 3, y: 0, duration: 0.4),
+                SKAction.moveBy(x: -6, y: 0, duration: 0.5),
+                SKAction.moveBy(x: 3, y: 0, duration: 0.4),
+            ])
+            leftPupil.run(.repeatForever(scan), withKey: pupilActionKey)
+            rightPupil.run(.repeatForever(scan), withKey: pupilActionKey)
+
+        case .coding:
+            let typing = SKAction.sequence([
+                SKAction.scaleX(to: 1.06, y: 0.94, duration: 0.08),
+                SKAction.scaleX(to: 1.0, y: 1.0, duration: 0.08),
+                SKAction.scaleX(to: 1.06, y: 0.94, duration: 0.08),
+                SKAction.scaleX(to: 1.0, y: 1.0, duration: 0.18),
+            ])
+            body.run(.repeatForever(typing), withKey: bodySquashKey)
+
+        case .running:
+            let lean = SKAction.sequence([
+                SKAction.rotate(toAngle: -0.08, duration: 0.18),
+                SKAction.rotate(toAngle: 0, duration: 0.18),
+            ])
+            body.run(.repeatForever(lean), withKey: bodySquashKey)
+
+        case .planning:
+            let tilt = SKAction.sequence([
+                SKAction.rotate(toAngle: .pi / 14, duration: 0.8),
+                SKAction.rotate(toAngle: -.pi / 14, duration: 1.4),
+                SKAction.rotate(toAngle: 0, duration: 0.6),
+            ])
+            body.run(.repeatForever(tilt), withKey: bodySquashKey)
+
+        case .browsing:
+            let squint = SKAction.sequence([
+                SKAction.scaleY(to: 0.4, duration: 0.5),
+                SKAction.scaleY(to: 1.0, duration: 0.5),
+                SKAction.wait(forDuration: 0.4),
+            ])
+            leftEye.run(.repeatForever(squint), withKey: eyeActionKey)
+            rightEye.run(.repeatForever(squint), withKey: eyeActionKey)
+
+        case .deepThink:
+            let longBob = SKAction.sequence([
+                SKAction.moveBy(x: 0, y: 6, duration: 1.4),
+                SKAction.moveBy(x: 0, y: -6, duration: 1.4),
+            ])
+            mascotNode.run(.repeatForever(longBob), withKey: decorationActionKey)
+            let blink = SKAction.sequence([
+                SKAction.scaleY(to: 0.15, duration: 0.15),
+                SKAction.scaleY(to: 1.0, duration: 0.15),
+                SKAction.wait(forDuration: 2.5),
+            ])
+            leftEye.run(.repeatForever(blink), withKey: eyeActionKey)
+            rightEye.run(.repeatForever(blink), withKey: eyeActionKey)
+
+        case .compacting:
+            mascotNode.run(.repeatForever(
+                SKAction.rotate(byAngle: 2 * .pi, duration: 3.0)
+            ), withKey: decorationActionKey)
+
+        case .dancing:
+            let hop = SKAction.sequence([
+                SKAction.moveBy(x: 6, y: 12, duration: 0.18),
+                SKAction.moveBy(x: 0, y: -12, duration: 0.15),
+                SKAction.moveBy(x: -12, y: 12, duration: 0.18),
+                SKAction.moveBy(x: 0, y: -12, duration: 0.15),
+                SKAction.moveBy(x: 6, y: 0, duration: 0.1),
+            ])
+            mascotNode.run(.repeatForever(hop), withKey: decorationActionKey)
+        }
+    }
+
     // MARK: - User-driven control
 
-    /// Bounding box of the mascot in scene coordinates.
     func mascotFrameInScene() -> CGRect {
         let s = mascotSize
         return CGRect(
@@ -210,7 +388,6 @@ final class MascotScene: SKScene {
         )
     }
 
-    /// Drive horizontal movement. dir: -1 left, 0 stop, 1 right.
     func setUserMove(direction dir: CGFloat) {
         guard state == .controlled else { return }
         let normalized: CGFloat = dir > 0 ? 1 : (dir < 0 ? -1 : 0)
@@ -233,7 +410,7 @@ final class MascotScene: SKScene {
             stopFootAnimation()
             return
         }
-        let duration = TimeInterval(distance / walkSpeed)
+        let duration = TimeInterval(distance / baseWalkSpeed)
         startFootAnimation()
         let move = SKAction.moveTo(x: target, duration: duration)
         let stop = SKAction.run { [weak self] in
@@ -243,9 +420,6 @@ final class MascotScene: SKScene {
         mascotNode.run(SKAction.sequence([move, stop]), withKey: userMoveActionKey)
     }
 
-    /// Trigger a user-initiated jump. Returns true if the jump started
-    /// (so the caller can play the chime). False if a jump is already
-    /// in progress.
     @discardableResult
     func userJump() -> Bool {
         guard state == .controlled else { return false }
@@ -272,5 +446,13 @@ final class MascotScene: SKScene {
                 setUserMove(direction: dir)
             }
         }
+    }
+}
+
+private extension CGFloat {
+    /// Returns `self` if non-zero, otherwise the fallback. Lets us express
+    /// "use this multiplier if it's meaningful, else 1".
+    func nonZeroOr(_ fallback: CGFloat) -> CGFloat {
+        self == 0 ? fallback : self
     }
 }

@@ -21,11 +21,13 @@ final class HookInstaller {
     private static let hookEvents = [
         "UserPromptSubmit",
         "PreToolUse",
+        "PostToolUse",
         "Stop",
         "SubagentStop",
         "Notification",
         "SessionStart",
         "SessionEnd",
+        "PreCompact",
     ]
     private static let marker = "/.claudario/"
 

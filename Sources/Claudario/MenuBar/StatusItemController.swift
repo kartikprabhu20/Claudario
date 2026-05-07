@@ -64,6 +64,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
 
+        let controls = NSMenuItem(title: "Show Controls…", action: #selector(showControls), keyEquivalent: "")
+        controls.target = self
+        menu.addItem(controls)
+
         let about = NSMenuItem(title: "About Claudario", action: #selector(about), keyEquivalent: "")
         about.target = self
         menu.addItem(about)
@@ -128,6 +132,36 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         guard let router = appDelegate?.router else { return }
         let n = #"{"hook_event_name":"Notification","session_id":"menubar-test"}"#
         router.handle(Data(n.utf8))
+    }
+
+    @objc private func showControls() {
+        let alert = NSAlert()
+        alert.messageText = "Claudario Controls"
+        alert.informativeText = """
+            Click the mascot to take control. While in control:
+
+              ←  →     Walk left / right
+              ↑        Jump with chime
+              Esc      Release control
+
+            Activities (test):
+              Q  Idle           Y  Planning
+              W  Thinking       U  Browsing
+              E  Reading        I  Deep thinking
+              R  Coding         O  Compacting
+              T  Running        P  Dancing
+
+            Size:
+              ,  or  <        smaller
+              .  or  >        larger
+
+            Color:
+              c               cycle to next color (10 total)
+
+            Esc, click outside, app-switch, or any incoming
+            Claude activity releases control.
+            """
+        alert.runModal()
     }
 
     @objc private func about() {

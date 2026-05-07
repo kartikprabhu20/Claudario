@@ -2,10 +2,28 @@ import AppKit
 import SpriteKit
 
 private enum KeyCode {
-    static let left:  UInt16 = 123
-    static let right: UInt16 = 124
-    static let up:    UInt16 = 126
-    static let esc:   UInt16 = 53
+    static let left:   UInt16 = 123
+    static let right:  UInt16 = 124
+    static let up:     UInt16 = 126
+    static let esc:    UInt16 = 53
+
+    // QWERTY top row → activity slots (matches MascotActivity.allCases order)
+    static let q: UInt16 = 12
+    static let w: UInt16 = 13
+    static let e: UInt16 = 14
+    static let r: UInt16 = 15
+    static let t: UInt16 = 17
+    static let y: UInt16 = 16
+    static let u: UInt16 = 32
+    static let i: UInt16 = 34
+    static let o: UInt16 = 31
+    static let p: UInt16 = 35
+
+    static let comma:  UInt16 = 43   // ','  and  '<'
+    static let period: UInt16 = 47   // '.'  and  '>'
+    static let c:      UInt16 = 8
+
+    static let activityKeys: [UInt16] = [q, w, e, r, t, y, u, i, o, p]
 }
 
 final class OverlayWindowController: NSObject,
@@ -17,14 +35,19 @@ final class OverlayWindowController: NSObject,
     private var contentView: InteractiveContentView!
 
     private let onUserJump: () -> Void
+    private let settings: MascotSettings
 
     private var leftHeld = false
     private var rightHeld = false
     private var globalMouseMonitor: Any?
 
-    init(onUserJump: @escaping () -> Void) {
+    init(settings: MascotSettings, onUserJump: @escaping () -> Void) {
+        self.settings = settings
         self.onUserJump = onUserJump
-        self.scene = MascotScene()
+        self.scene = MascotScene(
+            initialSize: settings.size,
+            initialColorIndex: settings.colorIndex
+        )
         super.init()
         self.scene.sceneDelegate = self
         rebuild()
@@ -124,8 +147,18 @@ final class OverlayWindowController: NSObject,
             if scene.userJump() {
                 onUserJump()
             }
+        case KeyCode.comma:
+            scene.setSize(points: settings.nudgeSize(by: -8))
+        case KeyCode.period:
+            scene.setSize(points: settings.nudgeSize(by: +8))
+        case KeyCode.c:
+            guard !isRepeat else { return }
+            scene.setColor(index: settings.cycleColor())
         default:
-            break
+            if let idx = KeyCode.activityKeys.firstIndex(of: keyCode),
+               idx < MascotActivity.allCases.count {
+                scene.setActivity(MascotActivity.allCases[idx])
+            }
         }
     }
 
@@ -147,9 +180,6 @@ final class OverlayWindowController: NSObject,
 
     func mascotScene(_ scene: MascotScene, didChangeStateTo state: MascotState) {
         if state != .controlled {
-            // Either Claude took over (.walking) or something released
-            // us (.idle). In both cases, make sure key focus is dropped
-            // and our held-key flags are cleared.
             tearDownControl()
         }
     }
@@ -171,7 +201,6 @@ final class OverlayWindowController: NSObject,
             return
         }
         scene.setState(.idle)
-        // tearDownControl will be called via the scene delegate.
     }
 
     private func tearDownControl() {

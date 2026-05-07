@@ -34,13 +34,21 @@ questions, idle reminders).
 - Procedurally-drawn mascot:
   - **Idle** when no Claude session is active.
   - **Walks back and forth** while Claude is processing.
+  - **Tool-aware activities** — different prop emoji + motion for
+    *reading* (`📖`), *coding* (`⌨️`), *running* (`⚡`), *browsing*
+    (`🌐`), *planning* (`📋`), *deep thinking* (`💭`), *compacting*
+    (`🌀`), and plain *thinking* between tool calls (`❓`). Driven
+    by the `tool_name` field on each `PreToolUse` hook.
   - **Jumps + chime** (`Glass`) when Claude finishes a turn.
   - **Bounces + tone** (`Funk`) when Claude needs permission or asks a
     question.
-- **Interactive mode** — when the mascot is idle, click it and use the
-  arrow keys to drive it (←/→ to walk, ↑ to jump with chime). Esc,
-  click-outside, app-switch, or any incoming Claude activity releases
-  control.
+- **Interactive mode** — when the mascot is idle, click it and use:
+  - **← →** to walk, **↑** to jump with chime, **Esc** to release.
+  - **Q–P** (QWERTY top row) to preview each of the 10 activity
+    animations.
+  - **`,`/`.`** (or **`<`/`>`**) to shrink/grow the mascot, and **`c`**
+    to cycle through 10 colors. Last size + color persist across
+    launches.
 - Auto-recomputes its position when the Dock is moved, hidden, or you
   switch Spaces / displays.
 - Loopback-only HTTP server (not reachable off-host).
@@ -188,12 +196,19 @@ with the Dock as normal.
 
 ### Key map
 
-| Key            | Effect                                                   |
-| -------------- | -------------------------------------------------------- |
-| ← Left         | Walk left (held = continuous walk; clamped to overlay)   |
-| → Right        | Walk right (held = continuous walk; clamped to overlay)  |
-| ↑ Up           | Jump + coin chime (auto-repeat is ignored)               |
-| Esc            | Release control → idle                                   |
+| Key                    | Effect                                                       |
+| ---------------------- | ------------------------------------------------------------ |
+| ← Left                 | Walk left (held = continuous; clamped to overlay)            |
+| → Right                | Walk right (held = continuous; clamped to overlay)           |
+| ↑ Up                   | Jump + coin chime (auto-repeat ignored)                      |
+| Esc                    | Release control → idle                                       |
+| **Q W E R T Y U I O P**| Preview each activity (idle, thinking, reading, coding, running, planning, browsing, deep-thinking, compacting, dancing) |
+| **`,`** or **`<`**     | Shrink mascot one step (24 → 88 pt range, 8 pt steps)        |
+| **`.`** or **`>`**     | Grow mascot one step                                         |
+| **c**                  | Cycle to next color in the 10-color palette                  |
+
+Both size and color choices persist across app launches via
+`UserDefaults`.
 
 ### Releasing control
 
@@ -323,11 +338,14 @@ a new terminal and type `claude`.
 | `Overlay/OverlayWindowController.swift`  | Re-positions the window; owns the click-to-control lifecycle, key map, and global mouse monitor. |
 | `Overlay/InteractiveContentView.swift`   | Hit-tests the mascot region (so the rest stays click-through) and routes mouse / key events.    |
 | `Mascot/MascotState.swift`               | `enum MascotState { idle, walking, controlled }`.                                    |
-| `Mascot/MascotScene.swift`               | SpriteKit scene; draws the mascot procedurally; runs walk/jump/bounce actions.       |
+| `Mascot/MascotActivity.swift`            | `enum MascotActivity` (10 cases) + `prop` emoji, speed multiplier, tool→activity map.|
+| `Mascot/MascotPalette.swift`             | 10 named `(body, foot)` color tuples.                                                |
+| `Mascot/MascotScene.swift`               | SpriteKit scene; draws procedurally; supports live size/color/activity changes.      |
 | `Server/EventServer.swift`               | NWListener bound to `.loopback`, parses minimal HTTP/1.1 POSTs.                      |
-| `Server/EventRouter.swift`               | Per-`session_id` state machine that maps events to mascot transitions.               |
+| `Server/EventRouter.swift`               | Per-`session_id` state machine; tracks walking + current activity; emits callbacks.  |
+| `Settings/MascotSettings.swift`          | `UserDefaults` wrapper for color index + size, with cycle/nudge helpers.             |
 | `Audio/SoundPlayer.swift`                | One-line wrapper around `NSSound(named:)`.                                           |
-| `MenuBar/StatusItemController.swift`     | Menu-bar `NSStatusItem` and its menu (toggles, install/uninstall, tests).            |
+| `MenuBar/StatusItemController.swift`     | Menu-bar `NSStatusItem`; toggles, install/uninstall, tests, **Show Controls…**.      |
 | `Install/HookInstaller.swift`            | JSON merge into `~/.claude/settings.json`, with backup and uninstall.                |
 
 ---
@@ -341,21 +359,37 @@ arbitrary shell command and feeds it a JSON payload on stdin.
 
 The events Claudario subscribes to:
 
-| Hook event         | Fires when…                                                              | Used for          |
-| ------------------ | ------------------------------------------------------------------------ | ----------------- |
-| `SessionStart`     | A `claude` process starts a new session                                  | Track session ID  |
-| `UserPromptSubmit` | You submit a prompt                                                      | Start walking     |
-| `PreToolUse`       | Before each tool call (Read, Bash, Edit, …)                              | Keep walking      |
-| `PostToolUse`      | After each tool call                                                     | Refresh activity  |
-| `Notification`     | Permission prompts, AskUserQuestion follow-ups, idle reminders           | Bounce + tone     |
-| `Stop`             | Claude finishes a top-level turn                                         | Jump + chime      |
-| `SubagentStop`     | A spawned subagent finishes                                              | Jump + chime      |
-| `SessionEnd`       | The session terminates                                                   | Clear state       |
+| Hook event         | Fires when…                                                       | Used for                                        |
+| ------------------ | ----------------------------------------------------------------- | ----------------------------------------------- |
+| `SessionStart`     | A `claude` process starts a new session                           | Track session ID                                |
+| `UserPromptSubmit` | You submit a prompt                                               | Start walking + activity = `thinking`           |
+| `PreToolUse`       | Before each tool call (Read, Bash, Edit, …)                       | Activity = category(`tool_name`)                |
+| `PostToolUse`      | After each tool call                                              | Activity = `thinking` (between tools)           |
+| `PreCompact`       | Before context compaction (manual or auto)                        | Activity = `compacting` (🌀)                    |
+| `Notification`     | Permission prompts, AskUserQuestion follow-ups, idle reminders    | Bounce + tone                                   |
+| `Stop`             | Claude finishes a top-level turn                                  | Jump + chime                                    |
+| `SubagentStop`     | A spawned subagent finishes                                       | Jump + chime                                    |
+| `SessionEnd`       | The session terminates                                            | Clear state                                     |
 
 The JSON payload Claude Code sends includes (at minimum)
-`hook_event_name`, `session_id`, `transcript_path`, and `cwd`. We only
-look at `hook_event_name` and `session_id` — the rest is ignored but
-available for future features.
+`hook_event_name`, `session_id`, `transcript_path`, `cwd`, and — for
+tool events — `tool_name` and `tool_input`. We currently use
+`hook_event_name`, `session_id`, and `tool_name`.
+
+### Tool → activity mapping
+
+| Tool name(s)                                | Activity      | Prop |
+| ------------------------------------------- | ------------- | ---- |
+| `Read`, `Grep`, `Glob`, `NotebookRead`      | `reading`     | 📖   |
+| `Edit`, `Write`, `MultiEdit`, `NotebookEdit`| `coding`      | ⌨️   |
+| `Bash`, `BashOutput`, `KillShell`           | `running`     | ⚡   |
+| `WebFetch`, `WebSearch`                     | `browsing`    | 🌐   |
+| `TodoWrite`, `ExitPlanMode`                 | `planning`    | 📋   |
+| `Task` (subagent dispatch)                  | `deepThink`   | 💭   |
+| (any other / between tool calls)            | `thinking`    | ❓   |
+
+Mapping lives in `MascotActivity.category(forTool:)`. Unknown / future
+tools fall through to `thinking`.
 
 ### Why a single bash script for every event
 
@@ -489,11 +523,15 @@ Claudario/
     │   ├── OverlayWindow.swift
     │   └── OverlayWindowController.swift
     ├── Mascot/
+    │   ├── MascotActivity.swift
+    │   ├── MascotPalette.swift
     │   ├── MascotScene.swift
     │   └── MascotState.swift
     ├── Server/
     │   ├── EventServer.swift
     │   └── EventRouter.swift
+    ├── Settings/
+    │   └── MascotSettings.swift
     ├── Audio/
     │   └── SoundPlayer.swift
     ├── MenuBar/
@@ -538,6 +576,13 @@ build/Claudario.app/            # assembled .app bundle (build.sh output)
 ---
 
 ## Customization
+
+### Activity / palette / size
+
+Activities live in `Sources/Claudario/Mascot/MascotActivity.swift` —
+edit the `prop` emoji, speed multiplier, or tool category map there.
+The 10 colors are in `MascotPalette.swift`; size range (24–88 pt,
+step 8) is in `MascotSettings.swift`.
 
 ### Sounds
 

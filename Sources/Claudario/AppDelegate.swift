@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) var overlay: OverlayWindowController!
     private(set) var server: EventServer!
     private(set) var router: EventRouter!
+    private(set) var settings: MascotSettings!
     let sound = SoundPlayer()
 
     var isEnabled: Bool = true {
@@ -22,9 +23,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         try? FileManager.default.createDirectory(
             at: FSPaths.configDir, withIntermediateDirectories: true)
 
-        overlay = OverlayWindowController(onUserJump: { [weak self] in
-            self?.sound.play(.coin)
-        })
+        settings = MascotSettings()
+
+        overlay = OverlayWindowController(
+            settings: settings,
+            onUserJump: { [weak self] in self?.sound.play(.coin) }
+        )
         overlay.show()
 
         router = EventRouter(
@@ -37,6 +41,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onNotify:     { [weak self] in
                 self?.overlay.scene.notify()
                 self?.sound.play(.notify)
+            },
+            onActivity:   { [weak self] activity in
+                self?.overlay.scene.setActivity(activity)
             }
         )
 
