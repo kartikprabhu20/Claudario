@@ -1,6 +1,6 @@
 # Claudario
 
-<video src="url_to_your_video.mp4" width="100%" autoplay loop muted playsinline>
+<video src="mascot_demo.mov" width="100%" autoplay loop muted playsinline>
 </video>
 
 A small mascot that walks above your Dock while Claude Code is working.
