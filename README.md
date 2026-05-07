@@ -1,12 +1,9 @@
-# Claudario
+# Claudario: Your terminal’s favourite sidekick.
 
-<video src="https://github.com/user-attachments/assets/084a2b5d-64a8-488c-b7d7-0db7a1ab9aa4" width="100%" autoplay loop muted playsinline>
+<video src="https://github.com/user-attachments/assets/d0f9ec77-b258-426c-a48c-d87bc71d1478" width="100%" autoplay loop muted playsinline>
 </video>
 
-A small mascot that walks above your Dock while Claude Code is working.
-It jumps with a chime when a turn finishes and bounces with a different
-tone when Claude needs your attention (permission prompts, follow-up
-questions, idle reminders).
+Claudario is a lightweight desktop mascot that brings the internal state of Claude Code to life. Instead of checking your terminal for progress, just look at your Dock. Claudario walks, jumps, and reacts in real-time to your development workflow, chirping with a chime when a task is done, and bouncing playfully when Claude needs your input. It’s a bit of personality for your workspace that keeps you informed without the context-switching.
 ---
 
 ## Table of contents
