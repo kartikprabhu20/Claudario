@@ -22,7 +22,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         try? FileManager.default.createDirectory(
             at: FSPaths.configDir, withIntermediateDirectories: true)
 
-        overlay = OverlayWindowController()
+        overlay = OverlayWindowController(onUserJump: { [weak self] in
+            self?.sound.play(.coin)
+        })
         overlay.show()
 
         router = EventRouter(

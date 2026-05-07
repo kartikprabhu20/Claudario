@@ -1,7 +1,13 @@
 import AppKit
 import SpriteKit
 
+protocol MascotSceneDelegate: AnyObject {
+    func mascotScene(_ scene: MascotScene, didChangeStateTo state: MascotState)
+}
+
 final class MascotScene: SKScene {
+    weak var sceneDelegate: MascotSceneDelegate?
+
     private let mascotNode = SKNode()
     private let body = SKShapeNode()
     private let leftEye = SKShapeNode()
@@ -14,9 +20,12 @@ final class MascotScene: SKScene {
     private let mascotSize: CGFloat = 44
     private let walkSpeed: CGFloat = 110
     private let walkActionKey = "walk"
+    private let userMoveActionKey = "userMove"
     private let footActionKey = "feet"
+    private let jumpActionKey = "jump"
 
     private var direction: CGFloat = 1
+    private var userMoveDirection: CGFloat = 0
     private(set) var state: MascotState = .idle
 
     override init() {
@@ -34,6 +43,7 @@ final class MascotScene: SKScene {
 
     override func didChangeSize(_ oldSize: CGSize) {
         positionAtStart()
+        clampCurrentX()
     }
 
     private func buildMascot() {
@@ -109,14 +119,24 @@ final class MascotScene: SKScene {
 
     func setState(_ newState: MascotState) {
         guard newState != state else { return }
+        let previous = state
         state = newState
         switch state {
         case .idle:
             mascotNode.removeAction(forKey: walkActionKey)
+            mascotNode.removeAction(forKey: userMoveActionKey)
             stopFootAnimation()
+            userMoveDirection = 0
         case .walking:
+            mascotNode.removeAction(forKey: userMoveActionKey)
+            userMoveDirection = 0
             startWalking()
+        case .controlled:
+            mascotNode.removeAction(forKey: walkActionKey)
+            stopFootAnimation()
         }
+        sceneDelegate?.mascotScene(self, didChangeStateTo: state)
+        _ = previous  // explicit ignore; reserved for future transition logic
     }
 
     private func startWalking() {
@@ -168,12 +188,89 @@ final class MascotScene: SKScene {
         up.timingMode = .easeOut
         let down = SKAction.moveBy(x: 0, y: -36, duration: 0.18)
         down.timingMode = .easeIn
-        mascotNode.run(SKAction.sequence([up, down]))
+        mascotNode.run(SKAction.sequence([up, down]), withKey: jumpActionKey)
     }
 
     func notify() {
         let up = SKAction.moveBy(x: 0, y: 14, duration: 0.1)
         let down = SKAction.moveBy(x: 0, y: -14, duration: 0.1)
         mascotNode.run(SKAction.sequence([up, down, up, down]))
+    }
+
+    // MARK: - User-driven control
+
+    /// Bounding box of the mascot in scene coordinates.
+    func mascotFrameInScene() -> CGRect {
+        let s = mascotSize
+        return CGRect(
+            x: mascotNode.position.x - s / 2,
+            y: mascotNode.position.y,
+            width: s,
+            height: s
+        )
+    }
+
+    /// Drive horizontal movement. dir: -1 left, 0 stop, 1 right.
+    func setUserMove(direction dir: CGFloat) {
+        guard state == .controlled else { return }
+        let normalized: CGFloat = dir > 0 ? 1 : (dir < 0 ? -1 : 0)
+        guard normalized != userMoveDirection else { return }
+        userMoveDirection = normalized
+        mascotNode.removeAction(forKey: userMoveActionKey)
+
+        if normalized == 0 {
+            stopFootAnimation()
+            return
+        }
+
+        mascotNode.xScale = normalized > 0 ? 1 : -1
+        let margin: CGFloat = mascotSize / 2 + 8
+        let leftEdge = margin
+        let rightEdge = max(margin + 1, size.width - margin)
+        let target = normalized > 0 ? rightEdge : leftEdge
+        let distance = max(0, abs(target - mascotNode.position.x))
+        guard distance > 0.5 else {
+            stopFootAnimation()
+            return
+        }
+        let duration = TimeInterval(distance / walkSpeed)
+        startFootAnimation()
+        let move = SKAction.moveTo(x: target, duration: duration)
+        let stop = SKAction.run { [weak self] in
+            self?.stopFootAnimation()
+            self?.userMoveDirection = 0
+        }
+        mascotNode.run(SKAction.sequence([move, stop]), withKey: userMoveActionKey)
+    }
+
+    /// Trigger a user-initiated jump. Returns true if the jump started
+    /// (so the caller can play the chime). False if a jump is already
+    /// in progress.
+    @discardableResult
+    func userJump() -> Bool {
+        guard state == .controlled else { return false }
+        if mascotNode.action(forKey: jumpActionKey) != nil { return false }
+        let up = SKAction.moveBy(x: 0, y: 36, duration: 0.18)
+        up.timingMode = .easeOut
+        let down = SKAction.moveBy(x: 0, y: -36, duration: 0.18)
+        down.timingMode = .easeIn
+        mascotNode.run(SKAction.sequence([up, down]), withKey: jumpActionKey)
+        return true
+    }
+
+    private func clampCurrentX() {
+        guard size.width > mascotSize else { return }
+        let margin: CGFloat = mascotSize / 2 + 8
+        let leftEdge = margin
+        let rightEdge = max(margin + 1, size.width - margin)
+        let x = min(max(mascotNode.position.x, leftEdge), rightEdge)
+        if x != mascotNode.position.x {
+            mascotNode.position.x = x
+            if state == .controlled, userMoveDirection != 0 {
+                let dir = userMoveDirection
+                userMoveDirection = 0
+                setUserMove(direction: dir)
+            }
+        }
     }
 }

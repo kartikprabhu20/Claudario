@@ -12,17 +12,18 @@ questions, idle reminders).
 2. [Requirements](#requirements)
 3. [Build & first run](#build--first-run)
 4. [Setting up Claude Code integration](#setting-up-claude-code-integration)
-5. [Making it default for every Claude session](#making-it-default-for-every-claude-session)
-6. [Architecture](#architecture)
-7. [How it connects to Claude Code (hooks)](#how-it-connects-to-claude-code-hooks)
-8. [Event → animation state machine](#event--animation-state-machine)
-9. [HTTP protocol on the wire](#http-protocol-on-the-wire)
-10. [File / directory layout](#file--directory-layout)
-11. [Security model](#security-model)
-12. [Customization](#customization)
-13. [Troubleshooting](#troubleshooting)
-14. [Uninstall](#uninstall)
-15. [Limitations](#limitations)
+5. [Interactive mode (click to control)](#interactive-mode-click-to-control)
+6. [Making it default for every Claude session](#making-it-default-for-every-claude-session)
+7. [Architecture](#architecture)
+8. [How it connects to Claude Code (hooks)](#how-it-connects-to-claude-code-hooks)
+9. [Event → animation state machine](#event--animation-state-machine)
+10. [HTTP protocol on the wire](#http-protocol-on-the-wire)
+11. [File / directory layout](#file--directory-layout)
+12. [Security model](#security-model)
+13. [Customization](#customization)
+14. [Troubleshooting](#troubleshooting)
+15. [Uninstall](#uninstall)
+16. [Limitations](#limitations)
 
 ---
 
@@ -36,6 +37,10 @@ questions, idle reminders).
   - **Jumps + chime** (`Glass`) when Claude finishes a turn.
   - **Bounces + tone** (`Funk`) when Claude needs permission or asks a
     question.
+- **Interactive mode** — when the mascot is idle, click it and use the
+  arrow keys to drive it (←/→ to walk, ↑ to jump with chime). Esc,
+  click-outside, app-switch, or any incoming Claude activity releases
+  control.
 - Auto-recomputes its position when the Dock is moved, hidden, or you
   switch Spaces / displays.
 - Loopback-only HTTP server (not reachable off-host).
@@ -110,6 +115,10 @@ do something multi-step (e.g. *"add a function and run the tests"*) and
 the mascot will walk while Claude works, bounce when it asks for tool
 permission, and jump when it finishes.
 
+> Looking for the toy mode? See
+> [Interactive mode (click to control)](#interactive-mode-click-to-control)
+> below.
+
 ### What "Install Claude Code Hooks" actually does
 
 It's a non-destructive merge into `~/.claude/settings.json`:
@@ -162,6 +171,56 @@ echo '{"hook_event_name":"Stop","session_id":"manual"}' \
   | ~/.claudario/hook
 # Mascot should jump + chime.
 ```
+
+---
+
+## Interactive mode (click to control)
+
+When the mascot is idle (no Claude session running), it doubles as a
+small toy you can drive yourself.
+
+### Entering control
+
+Move the cursor over the mascot and **click**. The app activates and
+the window takes keyboard focus. Outside of the mascot's bounding box
+the overlay is still fully click-through, so you can still interact
+with the Dock as normal.
+
+### Key map
+
+| Key            | Effect                                                   |
+| -------------- | -------------------------------------------------------- |
+| ← Left         | Walk left (held = continuous walk; clamped to overlay)   |
+| → Right        | Walk right (held = continuous walk; clamped to overlay)  |
+| ↑ Up           | Jump + coin chime (auto-repeat is ignored)               |
+| Esc            | Release control → idle                                   |
+
+### Releasing control
+
+Control is released — and keyboard focus is dropped — when any of
+these happen:
+
+- You press **Esc**.
+- You click anywhere outside the mascot (Dock, desktop, another app).
+- You ⌘-Tab to another app, or it otherwise becomes active.
+- Claude Code fires a hook event that would start walking
+  (`UserPromptSubmit` / `PreToolUse`). Claude's activity always wins
+  — the mascot returns to its job.
+
+### How it works
+
+While `walking`, the entire overlay window is click-through —
+`hitTest` returns `nil` for every point so clicks reach the Dock. While
+`idle` or `controlled`, hit-testing is restricted to the mascot's
+bounding rect (in scene coordinates), so only that small region grabs
+mouse events; the rest of the strip is still click-through.
+
+To receive `keyDown`, the borderless overlay window flips
+`canBecomeKey` to `true` only while controlled, then drops it back to
+`false` on release. A global mouse-down monitor is installed during
+control so we notice clicks elsewhere on the system. The same coin
+chime that plays on Claude turn completion fires on a user-initiated
+jump.
 
 ---
 
@@ -260,9 +319,10 @@ a new terminal and type `claude`.
 | `main.swift`                             | Bootstraps NSApplication as `.accessory` and installs `AppDelegate`.                 |
 | `AppDelegate.swift`                      | Creates the overlay, server, router, sound player, menu bar; wires their callbacks. |
 | `Overlay/DockGeometry.swift`             | Reads `com.apple.dock` defaults + `NSScreen` to compute where the Dock lives.        |
-| `Overlay/OverlayWindow.swift`            | Borderless transparent click-through `NSWindow` at `popUpMenu` level.                |
-| `Overlay/OverlayWindowController.swift`  | Re-positions the window on screen / Space / Dock-pref changes.                       |
-| `Mascot/MascotState.swift`               | `enum MascotState { idle, walking }`.                                                |
+| `Overlay/OverlayWindow.swift`            | Borderless transparent `NSWindow` at `popUpMenu` level; toggles `canBecomeKey` for control mode. |
+| `Overlay/OverlayWindowController.swift`  | Re-positions the window; owns the click-to-control lifecycle, key map, and global mouse monitor. |
+| `Overlay/InteractiveContentView.swift`   | Hit-tests the mascot region (so the rest stays click-through) and routes mouse / key events.    |
+| `Mascot/MascotState.swift`               | `enum MascotState { idle, walking, controlled }`.                                    |
 | `Mascot/MascotScene.swift`               | SpriteKit scene; draws the mascot procedurally; runs walk/jump/bounce actions.       |
 | `Server/EventServer.swift`               | NWListener bound to `.loopback`, parses minimal HTTP/1.1 POSTs.                      |
 | `Server/EventRouter.swift`               | Per-`session_id` state machine that maps events to mascot transitions.               |
@@ -359,6 +419,12 @@ Concurrent sessions are handled correctly: walking persists as long as
 **at least one** session is in flight. The celebration only fires when
 **all** sessions have stopped.
 
+The mascot itself has a third state, `controlled`, which the user
+enters by clicking the mascot while it's idle (see [Interactive
+mode](#interactive-mode-click-to-control)). It is never reached by
+hook events directly, but any incoming `onWalk()` immediately
+preempts `controlled` → `walking`, dropping keyboard focus.
+
 ---
 
 ## HTTP protocol on the wire
@@ -419,6 +485,7 @@ Claudario/
     ├── AppDelegate.swift
     ├── Overlay/
     │   ├── DockGeometry.swift
+    │   ├── InteractiveContentView.swift
     │   ├── OverlayWindow.swift
     │   └── OverlayWindowController.swift
     ├── Mascot/
@@ -594,5 +661,10 @@ Backups of `settings.json` taken at install time remain at
   [Customization](#customization).
 - **No preferences UI** — speed, color, sounds, and window level are
   hardcoded constants. PRs welcome.
+- **Interactive mode is idle-only** — by design, you can't take
+  keyboard control while Claude is working. Hook activity always
+  preempts. If you really want to drive the mascot during a turn,
+  toggle **Enabled** off + on from the menu bar to clear session
+  state.
 - **macOS 13+** because of `SMAppService`. Backporting to 12 would
   require a `LaunchAgent`-based login launcher.

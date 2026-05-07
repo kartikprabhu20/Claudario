@@ -1,6 +1,10 @@
 import AppKit
 
 final class OverlayWindow: NSWindow {
+    /// Toggled on while the user is interacting with the mascot.
+    /// Borderless windows can't receive `keyDown` unless this is true.
+    var allowKeyboardFocus: Bool = false
+
     init(contentRect: NSRect) {
         super.init(
             contentRect: contentRect,
@@ -11,7 +15,7 @@ final class OverlayWindow: NSWindow {
         self.isOpaque = false
         self.backgroundColor = .clear
         self.hasShadow = false
-        self.ignoresMouseEvents = true
+        self.ignoresMouseEvents = false
         self.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.popUpMenuWindow)))
         self.collectionBehavior = [
             .canJoinAllSpaces,
@@ -23,6 +27,6 @@ final class OverlayWindow: NSWindow {
         self.isReleasedWhenClosed = false
     }
 
-    override var canBecomeKey: Bool { false }
+    override var canBecomeKey: Bool { allowKeyboardFocus }
     override var canBecomeMain: Bool { false }
 }
