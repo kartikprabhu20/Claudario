@@ -1,5 +1,10 @@
 # Claudario
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Platform: macOS 13+](https://img.shields.io/badge/platform-macOS%2013%2B-blue.svg)](#requirements)
+[![Swift 5.9+](https://img.shields.io/badge/swift-5.9%2B-orange.svg)](https://swift.org)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#contributing)
+
 <video src="https://raw.githubusercontent.com/kartikprabhu20/Claudario/main/src/mascot_demo.mp4" width="100%" autoplay loop muted playsinline>
 </video>
 
@@ -7,6 +12,10 @@ A small mascot that walks above your Dock while Claude Code is working.
 It jumps with a chime when a turn finishes and bounces with a different
 tone when Claude needs your attention (permission prompts, follow-up
 questions, idle reminders).
+
+**Claudario is open source under the [MIT License](LICENSE).** Issues
+and pull requests are welcome — see [Contributing](#contributing).
+
 ---
 
 ## Table of contents
@@ -27,6 +36,8 @@ questions, idle reminders).
 14. [Troubleshooting](#troubleshooting)
 15. [Uninstall](#uninstall)
 16. [Limitations](#limitations)
+17. [Contributing](#contributing)
+18. [License](#license)
 
 ---
 
@@ -53,9 +64,10 @@ questions, idle reminders).
   - **← →** to walk, **↑** to jump with chime, **Esc** to release.
   - **1–0** (number row) to preview each of the 10 activity
     animations.
-  - **`,`/`.`** (or **`<`/`>`**) to shrink/grow the mascot, and **`c`**
-    to cycle through 10 colors. Last size + color persist across
-    launches.
+  - **`,`/`.`** (or **`<`/`>`**) to shrink/grow the mascot, **`c`**
+    to cycle through 10 colors, and **`v`** to cycle through 7 mascot
+    variants (Classic, Egg, Cat, Dog, Owl, Panda, Robot). Last size,
+    color, and variant persist across launches.
 - Auto-recomputes its position when the Dock is moved, hidden, or you
   switch Spaces / displays.
 - Loopback-only HTTP server (not reachable off-host).
@@ -216,8 +228,9 @@ with the Dock as normal.
 | **`,`** or **`<`**     | Shrink mascot one step (24 → 88 pt range, 8 pt steps)        |
 | **`.`** or **`>`**     | Grow mascot one step                                         |
 | **c**                  | Cycle to next color in the 10-color palette                  |
+| **v**                  | Cycle to next mascot variant (Classic, Egg, Cat, Dog, Owl, Panda, Robot) |
 
-Both size and color choices persist across app launches via
+Size, color, and variant choices all persist across app launches via
 `UserDefaults`.
 
 ### Releasing control
@@ -353,7 +366,8 @@ a new terminal and type `claude`.
 | `Mascot/MascotState.swift`               | `enum MascotState { idle, walking, controlled }`.                                    |
 | `Mascot/MascotActivity.swift`            | `enum MascotActivity` (10 cases including `.idle` aliveness) + `prop` emoji, speed multiplier, tool→activity map. |
 | `Mascot/MascotPalette.swift`             | 10 named `(body, foot)` color tuples.                                                |
-| `Mascot/MascotScene.swift`               | SpriteKit scene; draws procedurally; supports live size/color/activity changes.      |
+| `Mascot/MascotVariant.swift`             | 7 mascot silhouettes (Classic, Egg, Cat, Dog, Owl, Panda, Robot); per-variant body path, eye anchor, and decoration sub-nodes. |
+| `Mascot/MascotScene.swift`               | SpriteKit scene; draws procedurally; supports live size/color/variant/activity changes. |
 | `Server/EventServer.swift`               | NWListener bound to `.loopback`, parses minimal HTTP/1.1 POSTs.                      |
 | `Server/EventRouter.swift`               | Per-`session_id` state machine; tracks walking + current activity; emits callbacks.  |
 | `Settings/MascotSettings.swift`          | `UserDefaults` wrapper for color index + size, with cycle/nudge helpers.             |
@@ -551,7 +565,8 @@ Claudario/
     │   ├── MascotActivity.swift
     │   ├── MascotPalette.swift
     │   ├── MascotScene.swift
-    │   └── MascotState.swift
+    │   ├── MascotState.swift
+    │   └── MascotVariant.swift
     ├── Server/
     │   ├── EventServer.swift
     │   └── EventRouter.swift
@@ -608,6 +623,20 @@ Activities live in `Sources/Claudario/Mascot/MascotActivity.swift` —
 edit the `prop` emoji, speed multiplier, or tool category map there.
 The 10 colors are in `MascotPalette.swift`; size range (24–88 pt,
 step 8) is in `MascotSettings.swift`.
+
+### Adding new mascot variants
+
+`Sources/Claudario/Mascot/MascotVariant.swift` defines each silhouette.
+To add a variant:
+
+1. Append a case to the `MascotVariant` enum and to `displayName`.
+2. Add a `case` in `bodyPath(size:)` that returns a `CGPath`. Keep the
+   path's lowest point at `y = 0` and centered on `x = 0`.
+3. Add an `eyeY(size:)` entry to anchor the eyes for the new shape.
+4. (Optional) Add a `case` in `buildDecorations(into:size:)` to attach
+   sub-nodes (whiskers, ears, antennas, etc.) — they're parented under
+   `body`, so they inherit every activity animation automatically.
+5. Bump the count shown in `StatusItemController.showControls()`.
 
 ### Sounds
 
@@ -738,3 +767,53 @@ Backups of `settings.json` taken at install time remain at
   state.
 - **macOS 13+** because of `SMAppService`. Backporting to 12 would
   require a `LaunchAgent`-based login launcher.
+
+---
+
+## Contributing
+
+Contributions are very welcome. A few ways to help:
+
+- **File an issue** — bug reports, behavior quirks, or feature
+  suggestions. Please include your macOS version, Dock position, and
+  the output of `pgrep -fl Claudario` if it's a "doesn't show up"
+  problem.
+- **Send a pull request** — small, focused PRs are easiest to review.
+  Good first targets:
+  - New mascot variants (see [Adding new mascot variants](#adding-new-mascot-variants)).
+  - New activity animations or tool→activity mappings in
+    `MascotActivity.swift`.
+  - Multi-monitor support (the [Limitations](#limitations) list
+    spells out the known gaps).
+  - A preferences UI (currently size/color/variant are keyboard-only).
+
+### Local development
+
+```bash
+git clone https://github.com/kartikprabhu20/Claudario.git
+cd Claudario
+./build.sh
+open build/Claudario.app
+```
+
+`swift build` works as well if you don't need the `.app` bundle. The
+project has zero external dependencies, so first build only needs
+Xcode command-line tools.
+
+When you're iterating on the mascot, the menu's **Test: Walk + Jump**
+and **Test: Notify** items are the fastest way to exercise the
+animation paths without running a real Claude Code session.
+
+### Code style
+
+Match what's already there — no formatter or linter is enforced. Keep
+comments minimal; explain *why* something is the way it is, not *what*
+it does.
+
+---
+
+## License
+
+Claudario is released under the [MIT License](LICENSE) — you're free
+to use, modify, and redistribute it, including in commercial
+products. Attribution is appreciated but not required.
