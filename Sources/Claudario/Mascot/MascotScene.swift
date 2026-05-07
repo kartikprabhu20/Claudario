@@ -10,6 +10,7 @@ final class MascotScene: SKScene {
 
     private let mascotNode = SKNode()
     private let body = SKShapeNode()
+    private let decorationNode = SKNode()
     private let leftEye = SKShapeNode()
     private let rightEye = SKShapeNode()
     private let leftPupil = SKShapeNode()
@@ -75,6 +76,9 @@ final class MascotScene: SKScene {
         body.lineWidth = 1.5
         body.strokeColor = NSColor.black.withAlphaComponent(0.45)
         mascotNode.addChild(body)
+        // Parented under body so decorations (inner ears, whiskers, etc.)
+        // inherit body's squash/rotate animations.
+        body.addChild(decorationNode)
 
         for eye in [leftEye, rightEye] {
             eye.fillColor = .white
@@ -115,6 +119,9 @@ final class MascotScene: SKScene {
 
         body.path = v.bodyPath(size: s)
         body.fillColor = palette.body
+
+        decorationNode.removeAllChildren()
+        v.buildDecorations(into: decorationNode, size: s)
 
         let eyeR: CGFloat = s * 0.12
         let eyePath = CGPath(
