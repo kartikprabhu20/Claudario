@@ -7,23 +7,24 @@ private enum KeyCode {
     static let up:     UInt16 = 126
     static let esc:    UInt16 = 53
 
-    // QWERTY top row → activity slots (matches MascotActivity.allCases order)
-    static let q: UInt16 = 12
-    static let w: UInt16 = 13
-    static let e: UInt16 = 14
-    static let r: UInt16 = 15
-    static let t: UInt16 = 17
-    static let y: UInt16 = 16
-    static let u: UInt16 = 32
-    static let i: UInt16 = 34
-    static let o: UInt16 = 31
-    static let p: UInt16 = 35
+    // Number row → activity slots (matches MascotActivity.allCases order).
+    // 1 → idle, 2 → thinking, ... 9 → compacting, 0 → dancing.
+    static let n1: UInt16 = 18
+    static let n2: UInt16 = 19
+    static let n3: UInt16 = 20
+    static let n4: UInt16 = 21
+    static let n5: UInt16 = 23
+    static let n6: UInt16 = 22
+    static let n7: UInt16 = 26
+    static let n8: UInt16 = 28
+    static let n9: UInt16 = 25
+    static let n0: UInt16 = 29
 
     static let comma:  UInt16 = 43   // ','  and  '<'
     static let period: UInt16 = 47   // '.'  and  '>'
     static let c:      UInt16 = 8
 
-    static let activityKeys: [UInt16] = [q, w, e, r, t, y, u, i, o, p]
+    static let activityKeys: [UInt16] = [n1, n2, n3, n4, n5, n6, n7, n8, n9, n0]
 }
 
 final class OverlayWindowController: NSObject,

@@ -86,6 +86,10 @@ final class MascotScene: SKScene {
             mascotNode.addChild(foot)
         }
 
+        // SKLabelNode falls back to Helvetica by default, which has no
+        // emoji glyphs — the activity props would render as missing
+        // characters. Apple Color Emoji handles every prop in our table.
+        propLabel.fontName = "Apple Color Emoji"
         propLabel.verticalAlignmentMode = .center
         propLabel.horizontalAlignmentMode = .center
         propLabel.zPosition = 10
@@ -140,9 +144,14 @@ final class MascotScene: SKScene {
         clampCurrentX()
     }
 
+    /// y-coordinate where the mascot's feet rest. We keep it low so the
+    /// extra headroom (`DockGeometry.heightMultiplier`) above the Dock is
+    /// available for jumps and props.
+    private var groundY: CGFloat { 4 }
+
     private func positionAtStart() {
         guard size.width > mascotSize else { return }
-        let y = max(4, (size.height - mascotSize) * 0.25)
+        let y = groundY
         if mascotNode.position == .zero {
             mascotNode.position = CGPoint(x: size.width * 0.1, y: y)
         } else {
@@ -280,7 +289,7 @@ final class MascotScene: SKScene {
         for n in [leftEye, rightEye] { n.removeAction(forKey: eyeActionKey) }
         for n in [leftPupil, rightPupil] { n.removeAction(forKey: pupilActionKey) }
         mascotNode.zRotation = 0
-        mascotNode.position.y = max(4, (size.height - mascotSize) * 0.25)
+        mascotNode.position.y = groundY
         body.xScale = 1
         body.yScale = 1
         body.zRotation = 0
@@ -294,7 +303,38 @@ final class MascotScene: SKScene {
 
         switch currentActivity {
         case .idle:
-            break
+            // Idle isn't motionless — the mascot blinks and glances around
+            // so it doesn't look frozen between Claude turns. The varied
+            // wait durations make the rhythm feel irregular instead of
+            // metronomic.
+            let blink = SKAction.sequence([
+                SKAction.scaleY(to: 0.12, duration: 0.07),
+                SKAction.scaleY(to: 1.0, duration: 0.09),
+            ])
+            let blinkPattern = SKAction.repeatForever(SKAction.sequence([
+                SKAction.wait(forDuration: 3.6),
+                blink,
+                SKAction.wait(forDuration: 4.2),
+                blink,
+                SKAction.wait(forDuration: 2.7),
+                blink,
+                blink,                      // occasional double-blink
+                SKAction.wait(forDuration: 5.3),
+            ]))
+            leftEye.run(blinkPattern, withKey: eyeActionKey)
+            rightEye.run(blinkPattern, withKey: eyeActionKey)
+
+            let glance = SKAction.repeatForever(SKAction.sequence([
+                SKAction.wait(forDuration: 2.4),
+                SKAction.moveBy(x: 3, y: 0, duration: 0.28),    // look right
+                SKAction.wait(forDuration: 1.3),
+                SKAction.moveBy(x: -6, y: 0, duration: 0.4),    // look left
+                SKAction.wait(forDuration: 1.6),
+                SKAction.moveBy(x: 3, y: 0, duration: 0.28),    // back to center
+                SKAction.wait(forDuration: 4.5),
+            ]))
+            leftPupil.run(glance, withKey: pupilActionKey)
+            rightPupil.run(glance, withKey: pupilActionKey)
 
         case .thinking:
             let bob = SKAction.sequence([

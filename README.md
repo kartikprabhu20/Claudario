@@ -44,7 +44,7 @@ questions, idle reminders).
     question.
 - **Interactive mode** — when the mascot is idle, click it and use:
   - **← →** to walk, **↑** to jump with chime, **Esc** to release.
-  - **Q–P** (QWERTY top row) to preview each of the 10 activity
+  - **1–0** (number row) to preview each of the 10 activity
     animations.
   - **`,`/`.`** (or **`<`/`>`**) to shrink/grow the mascot, and **`c`**
     to cycle through 10 colors. Last size + color persist across
@@ -202,7 +202,7 @@ with the Dock as normal.
 | → Right                | Walk right (held = continuous; clamped to overlay)           |
 | ↑ Up                   | Jump + coin chime (auto-repeat ignored)                      |
 | Esc                    | Release control → idle                                       |
-| **Q W E R T Y U I O P**| Preview each activity (idle, thinking, reading, coding, running, planning, browsing, deep-thinking, compacting, dancing) |
+| **1 2 3 4 5 6 7 8 9 0**| Preview each activity (1=idle, 2=thinking, 3=reading, 4=coding, 5=running, 6=planning, 7=browsing, 8=deep-thinking, 9=compacting, 0=dancing) |
 | **`,`** or **`<`**     | Shrink mascot one step (24 → 88 pt range, 8 pt steps)        |
 | **`.`** or **`>`**     | Grow mascot one step                                         |
 | **c**                  | Cycle to next color in the 10-color palette                  |

@@ -137,30 +137,53 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     @objc private func showControls() {
         let alert = NSAlert()
         alert.messageText = "Claudario Controls"
-        alert.informativeText = """
-            Click the mascot to take control. While in control:
+        
+        let activities = [
+            ("1", "Idle", "6", "Planning"),
+            ("2", "Thinking", "7", "Browsing"),
+            ("3", "Reading", "8", "Deep thinking"),
+            ("4", "Coding", "9", "Compacting"),
+            ("5", "Running", "0", "Dancing")
+        ]
+        
+        var activityRows = ""
+        for (n1, name1, n2, name2) in activities {
+            let leftSide = "  \(n1)  \(name1)".padding(toLength: 18, withPad: " ", startingAt: 0)
+            activityRows += "\(leftSide)\(n2)  \(name2)\n"
+        }
 
-              ←  →     Walk left / right
-              ↑        Jump with chime
-              Esc      Release control
+        let fullText = """
+        Click the mascot to take control. While in control:
 
-            Activities (test):
-              Q  Idle           Y  Planning
-              W  Thinking       U  Browsing
-              E  Reading        I  Deep thinking
-              R  Coding         O  Compacting
-              T  Running        P  Dancing
+          ←  →      Walk left / right
+          ↑         Jump with chime
+          Esc       Release control
 
-            Size:
-              ,  or  <        smaller
-              .  or  >        larger
+        Activities (test):
+        \(activityRows)
+        Size:
+          ,  or  <        smaller
+          .  or  >        larger
 
-            Color:
-              c               cycle to next color (10 total)
+        Color:
+          c               cycle to next color (10 total)
 
-            Esc, click outside, app-switch, or any incoming
-            Claude activity releases control.
-            """
+        Esc, click outside, app-switch, or any incoming
+        Claude activity releases control.
+        """
+
+        // 1. Create a font that is strictly fixed-width
+        let font = NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+        
+        // 2. Use a label with the fixed-width font
+        let textField = NSTextField(labelWithString: fullText)
+        textField.font = font
+        textField.lineBreakMode = .byWordWrapping
+        
+        // 3. Add it to the alert
+        alert.accessoryView = textField
+        alert.informativeText = "" // Clear the default text area
+        
         alert.runModal()
     }
 

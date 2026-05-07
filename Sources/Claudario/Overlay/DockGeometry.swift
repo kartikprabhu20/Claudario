@@ -13,6 +13,10 @@ struct DockInfo {
 
 enum DockGeometry {
     static let fallbackStripHeight: CGFloat = 80
+    /// We give the overlay extra headroom above the Dock so jumps and
+    /// tall activity props (like the 🌀 prop above the mascot's head)
+    /// aren't clipped. Final strip height = Dock height × this.
+    static let heightMultiplier: CGFloat = 2
 
     static func current() -> DockInfo {
         let screen = NSScreen.main ?? NSScreen.screens.first!
@@ -35,18 +39,16 @@ enum DockGeometry {
         let full = screen.frame
         let visible = screen.visibleFrame
 
-        let rect: NSRect
+        let baseHeight: CGFloat
         switch orientation {
         case .bottom:
-            let height = max(0, visible.minY - full.minY)
-            if height > 0 {
-                rect = NSRect(x: full.minX, y: full.minY, width: full.width, height: height)
-            } else {
-                rect = NSRect(x: full.minX, y: full.minY, width: full.width, height: fallbackStripHeight)
-            }
+            let dockHeight = max(0, visible.minY - full.minY)
+            baseHeight = dockHeight > 0 ? dockHeight : fallbackStripHeight
         case .left, .right:
-            rect = NSRect(x: full.minX, y: full.minY, width: full.width, height: fallbackStripHeight)
+            baseHeight = fallbackStripHeight
         }
+        let stripHeight = baseHeight * heightMultiplier
+        let rect = NSRect(x: full.minX, y: full.minY, width: full.width, height: stripHeight)
 
         return DockInfo(orientation: orientation, autohide: autohide, rect: rect, screen: screen)
     }
