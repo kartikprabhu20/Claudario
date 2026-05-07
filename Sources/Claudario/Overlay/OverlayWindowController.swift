@@ -145,9 +145,8 @@ final class OverlayWindowController: NSObject,
             applyMoveDirection()
         case KeyCode.up:
             guard !isRepeat else { return }
-            if scene.userJump() {
-                onUserJump()
-            }
+            scene.userJump()
+            onUserJump()
         case KeyCode.comma:
             scene.setSize(points: settings.nudgeSize(by: -8))
         case KeyCode.period:

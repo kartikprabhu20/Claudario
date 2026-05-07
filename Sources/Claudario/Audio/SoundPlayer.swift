@@ -5,13 +5,31 @@ enum AppSound {
     case notify  // played for permission/question notifications
 }
 
-final class SoundPlayer {
+final class SoundPlayer: NSObject, NSSoundDelegate {
+    private static let soundDir = "/System/Library/Sounds"
+
+    // NSSound's play() is asynchronous, and the instance must be retained for
+    // the full duration of playback — otherwise ARC drops it the moment this
+    // method returns and the chime is cut off (or never starts). Hold each
+    // in-flight sound here and release it from the delegate callback, which
+    // also lets multiple instances play simultaneously when triggers fire
+    // faster than a single chime's runtime (e.g. spamming the jump key).
+    private var inFlight: [NSSound] = []
+
     func play(_ sound: AppSound) {
-        let name: String
+        let file: String
         switch sound {
-        case .coin:   name = "Glass"
-        case .notify: name = "Funk"
+        case .coin:   file = "Glass.aiff"
+        case .notify: file = "Funk.aiff"
         }
-        NSSound(named: NSSound.Name(name))?.play()
+        let path = "\(Self.soundDir)/\(file)"
+        guard let s = NSSound(contentsOfFile: path, byReference: true) else { return }
+        s.delegate = self
+        inFlight.append(s)
+        s.play()
+    }
+
+    func sound(_ sound: NSSound, didFinishPlaying flag: Bool) {
+        inFlight.removeAll { $0 === sound }
     }
 }
