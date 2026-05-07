@@ -1,5 +1,8 @@
 # Claudario
 
+<video src="url_to_your_video.mp4" width="100%" autoplay loop muted playsinline>
+</video>
+
 A small mascot that walks above your Dock while Claude Code is working.
 It jumps with a chime when a turn finishes and bounces with a different
 tone when Claude needs your attention (permission prompts, follow-up
