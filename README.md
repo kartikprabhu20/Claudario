@@ -14,6 +14,23 @@ and pull requests are welcome — see [Contributing](#contributing).
 </video>
 
 Claudario is a lightweight desktop mascot that brings the internal state of Claude Code to life. Instead of checking your terminal for progress, just look at your Dock. Claudario walks, jumps, and reacts in real-time to your development workflow, chirping with a chime when a task is done, and bouncing playfully when Claude needs your input. It’s a bit of personality for your workspace that keeps you informed without the context-switching.
+
+---
+
+## Meet the crew
+
+<p align="center">
+  <img src="src/mascots.gif" alt="The seven Claudario mascots — Classic, Egg, Cat, Dog, Owl, Panda, and Robot — strutting across the Dock" width="100%">
+</p>
+
+<p align="center">
+  <sub>
+    <b>Classic</b> · <b>Egg</b> · <b>Cat</b> · <b>Dog</b> · <b>Owl</b> · <b>Panda</b> · <b>Robot</b><br>
+    Seven hand-drawn silhouettes, each with their own ears, snouts, beaks, antennas, and quirks.<br>
+    Cycle through them on the fly with <kbd>v</kbd> in interactive mode — your pick persists across launches.
+  </sub>
+</p>
+
 ---
 
 ## Table of contents
@@ -23,19 +40,20 @@ Claudario is a lightweight desktop mascot that brings the internal state of Clau
 3. [Build & first run](#build--first-run)
 4. [Setting up Claude Code integration](#setting-up-claude-code-integration)
 5. [Interactive mode (click to control)](#interactive-mode-click-to-control)
-6. [Making it default for every Claude session](#making-it-default-for-every-claude-session)
-7. [Architecture](#architecture)
-8. [How it connects to Claude Code (hooks)](#how-it-connects-to-claude-code-hooks)
-9. [Event → animation state machine](#event--animation-state-machine)
-10. [HTTP protocol on the wire](#http-protocol-on-the-wire)
-11. [File / directory layout](#file--directory-layout)
-12. [Security model](#security-model)
-13. [Customization](#customization)
-14. [Troubleshooting](#troubleshooting)
-15. [Uninstall](#uninstall)
-16. [Limitations](#limitations)
-17. [Contributing](#contributing)
-18. [License](#license)
+6. [Dino-runner mini-game](#dino-runner-mini-game)
+7. [Making it default for every Claude session](#making-it-default-for-every-claude-session)
+8. [Architecture](#architecture)
+9. [How it connects to Claude Code (hooks)](#how-it-connects-to-claude-code-hooks)
+10. [Event → animation state machine](#event--animation-state-machine)
+11. [HTTP protocol on the wire](#http-protocol-on-the-wire)
+12. [File / directory layout](#file--directory-layout)
+13. [Security model](#security-model)
+14. [Customization](#customization)
+15. [Troubleshooting](#troubleshooting)
+16. [Uninstall](#uninstall)
+17. [Limitations](#limitations)
+18. [Contributing](#contributing)
+19. [License](#license)
 
 ---
 
@@ -66,6 +84,11 @@ Claudario is a lightweight desktop mascot that brings the internal state of Clau
     to cycle through 10 colors, and **`v`** to cycle through 7 mascot
     variants (Classic, Egg, Cat, Dog, Owl, Panda, Robot). Last size,
     color, and variant persist across launches.
+- **Dino-runner mini-game** — press **`g`** while the mascot is in
+  controlled-idle to launch a Chrome-style runner inside the Dock
+  strip. Mascot pinned left, score bottom-right, obstacles in the
+  mascot's color. **↑** to jump, **R** to restart after a hit, **Esc**
+  to exit. High score persists across launches.
 - Auto-recomputes its position when the Dock is moved, hidden, or you
   switch Spaces / displays.
 - Loopback-only HTTP server (not reachable off-host).
@@ -227,6 +250,7 @@ with the Dock as normal.
 | **`.`** or **`>`**     | Grow mascot one step                                         |
 | **c**                  | Cycle to next color in the 10-color palette                  |
 | **v**                  | Cycle to next mascot variant (Classic, Egg, Cat, Dog, Owl, Panda, Robot) |
+| **g**                  | Start the dino-runner mini-game (only while activity is `idle`) |
 
 Size, color, and variant choices all persist across app launches via
 `UserDefaults`.
@@ -257,6 +281,63 @@ To receive `keyDown`, the borderless overlay window flips
 control so we notice clicks elsewhere on the system. The same coin
 chime that plays on Claude turn completion fires on a user-initiated
 jump.
+
+---
+
+## Dino-runner mini-game
+
+A tiny side-scrolling runner that lives inside the same overlay strip
+as the mascot — no extra window, no Dock icon, just press a key and
+play.
+
+### Starting a game
+
+1. Click the mascot to enter controlled mode (you'll see it stop
+   blinking and take focus).
+2. Press **`g`**. The mascot snaps to the left of the strip, a faint
+   ground line appears, the score readout shows up at the bottom-right
+   (right of the Dock), and obstacles begin scrolling in from the
+   right.
+
+`g` is only accepted while the activity is `idle` — i.e. no Claude
+session is running and you haven't selected a preview animation. This
+keeps the game out of the way of Claude's actual work.
+
+### Controls during play
+
+| Key   | Effect                                                      |
+| ----- | ----------------------------------------------------------- |
+| ↑     | Jump (single jump per landing; auto-repeat ignored)         |
+| R     | Restart after a collision                                   |
+| Esc   | Exit the game and return the mascot to its idle behavior    |
+
+A click anywhere outside the overlay also exits the game.
+
+### Scoring
+
+You earn one point for every obstacle that scrolls past you. The
+obstacle gap shrinks and the scroll speed ramps up as your score
+climbs (capped so the run stays survivable). Your best run is stored
+in `UserDefaults` under `claudario.dinoHighScore` and shown next to
+the live score as `SCORE NNN HI NNN`.
+
+### Behavior while Claude is working
+
+If a Claude hook fires mid-game (e.g. you forgot you started a long
+task in another terminal), the mascot does **not** abandon the game —
+the latest Claude state is buffered and replayed when you exit, so
+the mascot resumes whatever Claude is doing right after you press
+**Esc**.
+
+### How it's drawn
+
+The game is implemented in `Sources/Claudario/Mascot/DinoGame.swift`
+as a `DinoGameController` owned by `MascotScene`. Obstacles are
+`SKShapeNode` rounded rects filled with the current mascot body color
+(stroke uses the foot color); the jump uses a velocity + gravity
+integrator on the existing `mascotNode`, so the mascot itself is the
+playable character — no separate sprite. Collision is rect-overlap
+against an inset mascot rect for forgiving grazes.
 
 ---
 
@@ -361,7 +442,8 @@ a new terminal and type `claude`.
 | `Overlay/OverlayWindow.swift`            | Borderless transparent `NSWindow` at `popUpMenu` level; toggles `canBecomeKey` for control mode. |
 | `Overlay/OverlayWindowController.swift`  | Re-positions the window; owns the click-to-control lifecycle, key map, and global mouse monitor. |
 | `Overlay/InteractiveContentView.swift`   | Hit-tests the mascot region (so the rest stays click-through) and routes mouse / key events.    |
-| `Mascot/MascotState.swift`               | `enum MascotState { idle, walking, controlled }`.                                    |
+| `Mascot/MascotState.swift`               | `enum MascotState { idle, walking, controlled, playing }`.                           |
+| `Mascot/DinoGame.swift`                  | `DinoGameController` — obstacles, score HUD, jump physics, collision; runs while state is `.playing`. |
 | `Mascot/MascotActivity.swift`            | `enum MascotActivity` (10 cases including `.idle` aliveness) + `prop` emoji, speed multiplier, tool→activity map. |
 | `Mascot/MascotPalette.swift`             | 10 named `(body, foot)` color tuples.                                                |
 | `Mascot/MascotVariant.swift`             | 7 mascot silhouettes (Classic, Egg, Cat, Dog, Owl, Panda, Robot); per-variant body path, eye anchor, and decoration sub-nodes. |
@@ -490,11 +572,14 @@ Concurrent sessions are handled correctly: walking persists as long as
 **at least one** session is in flight. The celebration only fires when
 **all** sessions have stopped.
 
-The mascot itself has a third state, `controlled`, which the user
-enters by clicking the mascot while it's idle (see [Interactive
-mode](#interactive-mode-click-to-control)). It is never reached by
-hook events directly, but any incoming `onWalk()` immediately
-preempts `controlled` → `walking`, dropping keyboard focus.
+The mascot itself has two extra states beyond the hook-driven pair.
+`controlled` is entered by clicking the mascot while it's idle (see
+[Interactive mode](#interactive-mode-click-to-control)); `playing` is
+entered from `controlled` by pressing **`g`** to start the dino-runner
+(see [Dino-runner mini-game](#dino-runner-mini-game)). Neither is
+reached by hook events directly. Incoming `onWalk()` preempts
+`controlled` immediately, but during `playing` Claude state is buffered
+and replayed only when you exit the game.
 
 ---
 
@@ -560,6 +645,7 @@ Claudario/
     │   ├── OverlayWindow.swift
     │   └── OverlayWindowController.swift
     ├── Mascot/
+    │   ├── DinoGame.swift
     │   ├── MascotActivity.swift
     │   ├── MascotPalette.swift
     │   ├── MascotScene.swift
