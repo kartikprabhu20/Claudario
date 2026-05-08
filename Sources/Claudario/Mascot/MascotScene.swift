@@ -8,6 +8,10 @@ protocol MascotSceneDelegate: AnyObject {
 final class MascotScene: SKScene {
     weak var sceneDelegate: MascotSceneDelegate?
     var onTick: (() -> Void)?
+    /// Set by the controller; returns the cursor's position in scene
+    /// coordinates each frame, or nil when the cursor is unavailable
+    /// (e.g. window hidden). Drives the petting gesture detector.
+    var mouseLocationProvider: (() -> CGPoint?)?
 
     let mascotNode = SKNode()
     private let body = SKShapeNode()
@@ -53,6 +57,17 @@ final class MascotScene: SKScene {
     private var userMoveDirection: CGFloat = 0
     private(set) var state: MascotState = .idle
 
+    // Petting state: a continuous level (0...1) that builds when the
+    // cursor wags back-and-forth over the head and decays when it stops.
+    // Drives squint/sway/tail-wag visuals directly each frame.
+    private var pettingLevel: CGFloat = 0
+    private var prevPettingLevel: CGFloat = 0
+    private var lastMouseSceneX: CGFloat?
+    private var lastDirection: Int = 0
+    private var reversalTimes: [TimeInterval] = []
+    private var lastTickTime: TimeInterval = 0
+    private var walkPaused: Bool = false
+
     init(initialSize: Int, initialColorIndex: Int, initialVariantIndex: Int) {
         super.init(size: CGSize(width: 1, height: 1))
         self.mascotSize = CGFloat(initialSize)
@@ -86,6 +101,7 @@ final class MascotScene: SKScene {
         if state == .playing {
             game?.tick(currentTime)
         }
+        tickPetting(currentTime: currentTime)
     }
 
     private func addChildNodes() {
@@ -562,6 +578,124 @@ final class MascotScene: SKScene {
                 SKAction.moveBy(x: 6, y: 0, duration: 0.1),
             ])
             mascotNode.run(.repeatForever(hop), withKey: decorationActionKey)
+        }
+    }
+
+    // MARK: - Petting
+
+    /// Per-frame tick that watches for a back-and-forth gesture over the
+    /// head and ramps `pettingLevel` up/down. Visual reaction (squint /
+    /// sway / tail wag) is written directly here so it fades smoothly with
+    /// the level instead of toggling on a boolean.
+    private func tickPetting(currentTime: TimeInterval) {
+        let dt: TimeInterval
+        if lastTickTime == 0 {
+            dt = 1.0 / 60.0
+        } else {
+            dt = max(0, currentTime - lastTickTime)
+        }
+        lastTickTime = currentTime
+
+        // Petting only engages while the dog is just being a dog — not
+        // during the runner game, control mode, or any non-idle activity
+        // (those run their own SKActions on the body/eyes that would
+        // fight the per-frame writes below).
+        let active = (state == .idle || state == .walking) && currentActivity == .idle
+
+        if active, let mouse = mouseLocationProvider?() {
+            let frame = mascotFrameInScene()
+            let headPad: CGFloat = 6
+            let headRect = CGRect(
+                x: frame.minX - headPad,
+                y: frame.minY + frame.height * 0.45,
+                width: frame.width + 2 * headPad,
+                height: frame.height * 0.55 + headPad
+            )
+            if headRect.contains(mouse) {
+                if let last = lastMouseSceneX {
+                    let delta = mouse.x - last
+                    if abs(delta) >= 0.5 {
+                        let dir: Int = delta > 0 ? 1 : -1
+                        if lastDirection != 0 && dir != lastDirection {
+                            reversalTimes.append(currentTime)
+                        }
+                        lastDirection = dir
+                    }
+                }
+                lastMouseSceneX = mouse.x
+            } else {
+                lastMouseSceneX = nil
+                lastDirection = 0
+            }
+        } else {
+            lastMouseSceneX = nil
+            lastDirection = 0
+        }
+
+        // Sliding 1.5s window of recent reversals.
+        let windowStart = currentTime - 1.5
+        while let first = reversalTimes.first, first < windowStart {
+            reversalTimes.removeFirst()
+        }
+
+        if !active {
+            // Snap off rather than fighting another activity's SKActions
+            // mid-fade. (Active states/idle activity are checked above.)
+            pettingLevel = 0
+        } else if reversalTimes.count >= 2 {
+            pettingLevel = min(1, pettingLevel + CGFloat(dt) * 1.2)
+        } else {
+            pettingLevel *= CGFloat(exp(-dt / 0.5))
+            if pettingLevel < 0.005 { pettingLevel = 0 }
+        }
+
+        applyPettingReaction(currentTime: currentTime)
+        prevPettingLevel = pettingLevel
+    }
+
+    private func applyPettingReaction(currentTime: TimeInterval) {
+        let level = pettingLevel
+
+        if level > 0 && prevPettingLevel == 0 {
+            // Engaging: take over the eyes from the idle blink/glance so
+            // those SKActions don't fight our per-frame writes.
+            leftEye.removeAction(forKey: eyeActionKey)
+            rightEye.removeAction(forKey: eyeActionKey)
+            leftPupil.removeAction(forKey: pupilActionKey)
+            rightPupil.removeAction(forKey: pupilActionKey)
+        }
+
+        if level > 0 {
+            let squint = 1 - 0.7 * level
+            leftEye.yScale = squint
+            rightEye.yScale = squint
+            leftPupil.yScale = squint
+            rightPupil.yScale = squint
+            body.zRotation = CGFloat(sin(currentTime * 6)) * 0.10 * level
+        } else if prevPettingLevel > 0 {
+            // Releasing: restore resting visuals and let the activity
+            // decoration repopulate the eye/pupil actions.
+            leftEye.yScale = 1
+            rightEye.yScale = 1
+            leftPupil.yScale = 1
+            rightPupil.yScale = 1
+            body.zRotation = 0
+            applyActivityDecoration()
+        }
+
+        // Pause walking while being meaningfully petted — the dog stops to
+        // enjoy it instead of moonwalking through the gesture.
+        let shouldPause = state == .walking && level > 0.15
+        if shouldPause && !walkPaused {
+            mascotNode.action(forKey: walkActionKey)?.speed = 0
+            stopFootAnimation()
+            walkPaused = true
+        } else if !shouldPause && walkPaused {
+            mascotNode.action(forKey: walkActionKey)?.speed = 1
+            if state == .walking {
+                startFootAnimation()
+            }
+            walkPaused = false
         }
     }
 

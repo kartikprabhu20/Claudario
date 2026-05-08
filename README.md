@@ -40,20 +40,21 @@ Claudario is a lightweight desktop mascot that brings the internal state of Clau
 3. [Build & first run](#build--first-run)
 4. [Setting up Claude Code integration](#setting-up-claude-code-integration)
 5. [Interactive mode (click to control)](#interactive-mode-click-to-control)
-6. [Dino-runner mini-game](#dino-runner-mini-game)
-7. [Making it default for every Claude session](#making-it-default-for-every-claude-session)
-8. [Architecture](#architecture)
-9. [How it connects to Claude Code (hooks)](#how-it-connects-to-claude-code-hooks)
-10. [Event → animation state machine](#event--animation-state-machine)
-11. [HTTP protocol on the wire](#http-protocol-on-the-wire)
-12. [File / directory layout](#file--directory-layout)
-13. [Security model](#security-model)
-14. [Customization](#customization)
-15. [Troubleshooting](#troubleshooting)
-16. [Uninstall](#uninstall)
-17. [Limitations](#limitations)
-18. [Contributing](#contributing)
-19. [License](#license)
+6. [Petting](#petting)
+7. [Dino-runner mini-game](#dino-runner-mini-game)
+8. [Making it default for every Claude session](#making-it-default-for-every-claude-session)
+9. [Architecture](#architecture)
+10. [How it connects to Claude Code (hooks)](#how-it-connects-to-claude-code-hooks)
+11. [Event → animation state machine](#event--animation-state-machine)
+12. [HTTP protocol on the wire](#http-protocol-on-the-wire)
+13. [File / directory layout](#file--directory-layout)
+14. [Security model](#security-model)
+15. [Customization](#customization)
+16. [Troubleshooting](#troubleshooting)
+17. [Uninstall](#uninstall)
+18. [Limitations](#limitations)
+19. [Contributing](#contributing)
+20. [License](#license)
 
 ---
 
@@ -84,6 +85,11 @@ Claudario is a lightweight desktop mascot that brings the internal state of Clau
     to cycle through 10 colors, and **`v`** to cycle through 7 mascot
     variants (Classic, Egg, Cat, Dog, Owl, Panda, Robot). Last size,
     color, and variant persist across launches.
+- **Pet the mascot** — wag the cursor back-and-forth over the
+  mascot's head and it reacts like a real pet: eyes squint into happy
+  crescents and the body sways. If it was walking, it stops to enjoy
+  the petting and resumes when you let go. Reaction fades within ~1 s
+  of stopping.
 - **Dino-runner mini-game** — press **`g`** while the mascot is in
   controlled-idle to launch a Chrome-style runner inside the Dock
   strip. Mascot pinned left, score bottom-right, obstacles in the
@@ -281,6 +287,45 @@ To receive `keyDown`, the borderless overlay window flips
 control so we notice clicks elsewhere on the system. The same coin
 chime that plays on Claude turn completion fires on a user-initiated
 jump.
+
+---
+
+## Petting
+
+The mascot doubles as a small pet you can interact with hands-on. Move
+the cursor back-and-forth over its head a couple of times and it
+reacts: eyes squint into happy crescents and the body sways gently
+while you keep going. Stop, and the reaction fades within about a
+second.
+
+### When it's active
+
+- **Idle** — petting works while the mascot is just being a mascot
+  (blinking, glancing, no Claude session in flight).
+- **Walking** — if Claude is working and the mascot is walking back
+  and forth, petting still triggers; the walk pauses for the duration
+  and resumes in the same direction once you stop.
+- **Off** during the dino-runner game, controlled mode, and any
+  non-idle activity (`thinking`, `coding`, `running`, …). Those run
+  their own animations on the body and eyes that would fight the
+  petting reaction.
+
+### How the gesture is detected
+
+A continuous "petting level" (0 → 1) builds up while the cursor wags
+back-and-forth across the head region: each horizontal direction
+reversal inside a sliding 1.5 s window counts toward the gesture, and
+once two reversals have stacked up the level ramps in over ≈0.8 s of
+sustained wagging. Once you stop (or the cursor leaves the head), the
+level decays with a ≈0.35 s half-life, so the visual reaction fades
+smoothly instead of snapping off.
+
+The level drives the visuals directly per frame: eye `yScale` shrinks
+proportionally, and a small `sin`-based body rotation adds the sway —
+no separate state machine to fall out of sync. Implementation lives in
+`MascotScene.tickPetting(currentTime:)`. The cursor position arrives
+each frame via the controller-supplied `mouseLocationProvider` closure
+so the scene never touches AppKit windowing directly.
 
 ---
 

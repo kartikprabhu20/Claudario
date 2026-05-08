@@ -81,6 +81,13 @@ final class OverlayWindowController: NSObject,
             scene.backgroundColor = .clear
             scene.size = frame.size
             skView.presentScene(scene)
+            scene.mouseLocationProvider = { [weak self] in
+                guard let self = self, self.window.isVisible else { return nil }
+                let inWindow = self.window.convertPoint(fromScreen: NSEvent.mouseLocation)
+                // Scene uses anchorPoint (0,0) and resizeFill, so SKView
+                // points equal scene points.
+                return self.skView.convert(inWindow, to: nil)
+            }
         } else {
             window.setFrame(frame, display: true)
             contentView.frame = NSRect(origin: .zero, size: frame.size)
