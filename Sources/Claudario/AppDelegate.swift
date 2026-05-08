@@ -29,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             settings: settings,
             onUserJump: { [weak self] in self?.sound.play(.coin) }
         )
+        overlay.scene.attachSettings(settings)
         overlay.show()
 
         router = EventRouter(

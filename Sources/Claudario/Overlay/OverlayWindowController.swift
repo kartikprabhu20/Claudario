@@ -24,6 +24,8 @@ private enum KeyCode {
     static let period: UInt16 = 47   // '.'  and  '>'
     static let c:      UInt16 = 8
     static let v:      UInt16 = 9
+    static let g:      UInt16 = 5
+    static let r:      UInt16 = 15
 
     static let activityKeys: [UInt16] = [n1, n2, n3, n4, n5, n6, n7, n8, n9, n0]
 }
@@ -92,6 +94,7 @@ final class OverlayWindowController: NSObject,
     }
 
     func hide() {
+        if scene.state == .playing { scene.exitGame() }
         releaseControl()
         window.ignoresMouseEvents = true
         window.orderOut(nil)
@@ -108,6 +111,8 @@ final class OverlayWindowController: NSObject,
             let rectInWindow = skView.convert(rectInScene, to: nil)
             let rectInScreen = window.convertToScreen(rectInWindow)
             shouldCapture = rectInScreen.contains(NSEvent.mouseLocation)
+        case .playing:
+            shouldCapture = true
         }
         let target = !shouldCapture
         if window.ignoresMouseEvents != target {
@@ -155,7 +160,16 @@ final class OverlayWindowController: NSObject,
     }
 
     func interactiveView(_ view: InteractiveContentView, didPressKey keyCode: UInt16, isRepeat: Bool) {
-        guard scene.state == .controlled else { return }
+        switch scene.state {
+        case .playing:
+            handlePlayingKey(keyCode, isRepeat: isRepeat)
+            return
+        case .controlled:
+            break
+        case .idle, .walking:
+            return
+        }
+
         switch keyCode {
         case KeyCode.esc:
             releaseControl()
@@ -169,6 +183,9 @@ final class OverlayWindowController: NSObject,
             guard !isRepeat else { return }
             scene.userJump()
             onUserJump()
+        case KeyCode.g:
+            guard !isRepeat, scene.currentActivity == .idle else { return }
+            scene.setState(.playing)
         case KeyCode.comma:
             scene.setSize(points: settings.nudgeSize(by: -8))
         case KeyCode.period:
@@ -184,6 +201,22 @@ final class OverlayWindowController: NSObject,
                idx < MascotActivity.allCases.count {
                 scene.setActivity(MascotActivity.allCases[idx])
             }
+        }
+    }
+
+    private func handlePlayingKey(_ keyCode: UInt16, isRepeat: Bool) {
+        switch keyCode {
+        case KeyCode.up:
+            guard !isRepeat else { return }
+            scene.tryJump()
+            onUserJump()
+        case KeyCode.r:
+            guard !isRepeat else { return }
+            scene.tryRestart()
+        case KeyCode.esc:
+            scene.exitGame()
+        default:
+            break
         }
     }
 
@@ -204,7 +237,12 @@ final class OverlayWindowController: NSObject,
     // MARK: - MascotSceneDelegate
 
     func mascotScene(_ scene: MascotScene, didChangeStateTo state: MascotState) {
-        if state != .controlled {
+        switch state {
+        case .controlled, .playing:
+            // Keep the window key + keyboard focus so the player keeps
+            // receiving key events during the game.
+            break
+        case .idle, .walking:
             tearDownControl()
         }
     }
@@ -251,7 +289,14 @@ final class OverlayWindowController: NSObject,
         guard globalMouseMonitor == nil else { return }
         globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown) {
             [weak self] _ in
-            DispatchQueue.main.async { self?.releaseControl() }
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if self.scene.state == .playing {
+                    self.scene.exitGame()
+                } else {
+                    self.releaseControl()
+                }
+            }
         }
     }
 

@@ -9,7 +9,7 @@ final class MascotScene: SKScene {
     weak var sceneDelegate: MascotSceneDelegate?
     var onTick: (() -> Void)?
 
-    private let mascotNode = SKNode()
+    let mascotNode = SKNode()
     private let body = SKShapeNode()
     private let decorationNode = SKNode()
     private let leftEye = SKShapeNode()
@@ -20,10 +20,18 @@ final class MascotScene: SKScene {
     private let rightFoot = SKShapeNode()
     private let propLabel = SKLabelNode()
 
-    private var mascotSize: CGFloat = 44
+    private(set) var mascotSize: CGFloat = 44
     private var colorIndex: Int = 0
     private var variantIndex: Int = 0
     private(set) var currentActivity: MascotActivity = .idle
+
+    private var game: DinoGameController?
+    private weak var settingsRef: MascotSettings?
+    /// Latest Claude state event that arrived while the player was in
+    /// the dino game. Replayed on game exit so the mascot reflects
+    /// whatever Claude was doing once the user returns from playing.
+    private var pendingState: MascotState?
+    private var pendingActivity: MascotActivity?
 
     private var variant: MascotVariant {
         MascotVariant.allCases[max(0, min(variantIndex, MascotVariant.allCases.count - 1))]
@@ -75,6 +83,9 @@ final class MascotScene: SKScene {
 
     override func update(_ currentTime: TimeInterval) {
         onTick?()
+        if state == .playing {
+            game?.tick(currentTime)
+        }
     }
 
     private func addChildNodes() {
@@ -167,7 +178,17 @@ final class MascotScene: SKScene {
     /// y-coordinate where the mascot's feet rest. We keep it low so the
     /// extra headroom (`DockGeometry.heightMultiplier`) above the Dock is
     /// available for jumps and props.
-    private var groundY: CGFloat { 4 }
+    var groundY: CGFloat { 4 }
+
+    func attachSettings(_ settings: MascotSettings) {
+        self.settingsRef = settings
+    }
+
+    func currentColor() -> MascotColor {
+        let count = MascotPalette.colors.count
+        let i = max(0, min(colorIndex, count - 1))
+        return MascotPalette.colors[i]
+    }
 
     private func positionAtStart() {
         guard size.width > mascotSize else { return }
@@ -182,6 +203,13 @@ final class MascotScene: SKScene {
     // MARK: - State
 
     func setState(_ newState: MascotState) {
+        // While playing, Claude-driven state changes (`onWalk`, `onIdle`)
+        // are deferred and replayed once the player exits the game via
+        // `exitGame()` — that path bypasses this guard.
+        if state == .playing && newState != .playing {
+            pendingState = newState
+            return
+        }
         guard newState != state else { return }
         state = newState
         switch state {
@@ -194,9 +222,86 @@ final class MascotScene: SKScene {
             startAutoMotionForActivity()
         case .controlled:
             clearAutoMotion()
+        case .playing:
+            startGame()
         }
         sceneDelegate?.mascotScene(self, didChangeStateTo: state)
     }
+
+    private func startGame() {
+        guard let settings = settingsRef else { return }
+        clearAutoMotion()
+        mascotNode.removeAction(forKey: userMoveActionKey)
+        mascotNode.removeAction(forKey: jumpActionKey)
+        mascotNode.removeAction(forKey: decorationActionKey)
+        body.removeAction(forKey: bodySquashKey)
+        for n in [leftEye, rightEye] { n.removeAction(forKey: eyeActionKey) }
+        for n in [leftPupil, rightPupil] { n.removeAction(forKey: pupilActionKey) }
+        stopFootAnimation()
+        mascotNode.zRotation = 0
+        body.xScale = 1
+        body.yScale = 1
+        body.zRotation = 0
+        propLabel.isHidden = true
+        userMoveDirection = 0
+
+        let controller = DinoGameController(
+            scene: self,
+            mascotNode: mascotNode,
+            mascotSize: mascotSize,
+            palette: currentColor(),
+            bounds: size,
+            ground: groundY,
+            settings: settings
+        )
+        game = controller
+        controller.start()
+    }
+
+    private func tearDownGame() {
+        game?.stop()
+        game = nil
+        positionAtStart()
+    }
+
+    private func applyPendingClaudeState() {
+        if let activity = pendingActivity {
+            pendingActivity = nil
+            setActivity(activity)
+        }
+        if let pending = pendingState {
+            pendingState = nil
+            setState(pending)
+        }
+    }
+
+    func tryJump() {
+        if state == .playing {
+            game?.jump()
+        }
+    }
+
+    func tryRestart() {
+        if state == .playing {
+            game?.restart()
+        }
+    }
+
+    /// User-initiated exit from the dino game. Bypasses the in-game
+    /// deferral guard in `setState(_:)` so the scene can actually leave
+    /// the `.playing` state.
+    func exitGame() {
+        guard state == .playing else { return }
+        let leavingPlaying = true
+        state = .idle
+        clearAutoMotion()
+        userMoveDirection = 0
+        tearDownGame()
+        sceneDelegate?.mascotScene(self, didChangeStateTo: state)
+        if leavingPlaying { applyPendingClaudeState() }
+    }
+
+    var isGameOver: Bool { game?.isOver ?? false }
 
     private func clearAutoMotion() {
         mascotNode.removeAction(forKey: walkActionKey)
@@ -254,6 +359,7 @@ final class MascotScene: SKScene {
     }
 
     func celebrate() {
+        if state == .playing { return }
         let up = SKAction.moveBy(x: 0, y: 36, duration: 0.18)
         up.timingMode = .easeOut
         let down = SKAction.moveBy(x: 0, y: -36, duration: 0.18)
@@ -262,6 +368,7 @@ final class MascotScene: SKScene {
     }
 
     func notify() {
+        if state == .playing { return }
         let up = SKAction.moveBy(x: 0, y: 14, duration: 0.1)
         let down = SKAction.moveBy(x: 0, y: -14, duration: 0.1)
         mascotNode.run(SKAction.sequence([up, down, up, down]))
@@ -270,6 +377,10 @@ final class MascotScene: SKScene {
     // MARK: - Activity / customization
 
     func setActivity(_ activity: MascotActivity) {
+        if state == .playing {
+            pendingActivity = activity
+            return
+        }
         guard currentActivity != activity else { return }
         currentActivity = activity
         propLabel.text = activity.prop

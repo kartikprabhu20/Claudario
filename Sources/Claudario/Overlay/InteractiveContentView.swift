@@ -32,6 +32,8 @@ final class InteractiveContentView: NSView {
             // coordinates equal SKView coordinates in points.
             let rectInSelf = skView.convert(rectInScene, to: self)
             return rectInSelf.contains(point) ? self : nil
+        case .playing:
+            return bounds.contains(point) ? self : nil
         }
     }
 

@@ -8,9 +8,10 @@ final class MascotSettings {
 
     private let defaults: UserDefaults
     private enum Key {
-        static let colorIndex   = "claudario.colorIndex"
-        static let size         = "claudario.size"
-        static let variantIndex = "claudario.variantIndex"
+        static let colorIndex    = "claudario.colorIndex"
+        static let size          = "claudario.size"
+        static let variantIndex  = "claudario.variantIndex"
+        static let dinoHighScore = "claudario.dinoHighScore"
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -39,6 +40,11 @@ final class MascotSettings {
             return clampVariantIndex(raw)
         }
         set { defaults.set(clampVariantIndex(newValue), forKey: Key.variantIndex) }
+    }
+
+    var dinoHighScore: Int {
+        get { max(0, defaults.object(forKey: Key.dinoHighScore) as? Int ?? 0) }
+        set { defaults.set(max(0, newValue), forKey: Key.dinoHighScore) }
     }
 
     /// Move to the next palette index (wraps). Persists, returns new index.
