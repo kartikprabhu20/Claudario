@@ -10,6 +10,8 @@ and pull requests are welcome — see [Contributing](#contributing).
 
 <video src="https://github.com/user-attachments/assets/d0f9ec77-b258-426c-a48c-d87bc71d1478" width="100%" autoplay loop muted playsinline>
 </video>
+<video src="https://github.com/user-attachments/assets/7e2b1b29-7870-4d52-8aaa-651d777d2762" width="100%" autoplay loop muted playsinline>
+</video>
 
 Claudario is a lightweight desktop mascot that brings the internal state of Claude Code to life. Instead of checking your terminal for progress, just look at your Dock. Claudario walks, jumps, and reacts in real-time to your development workflow, chirping with a chime when a task is done, and bouncing playfully when Claude needs your input. It’s a bit of personality for your workspace that keeps you informed without the context-switching.
 ---
