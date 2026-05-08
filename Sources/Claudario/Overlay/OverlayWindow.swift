@@ -15,7 +15,7 @@ final class OverlayWindow: NSWindow {
         self.isOpaque = false
         self.backgroundColor = .clear
         self.hasShadow = false
-        self.ignoresMouseEvents = false
+        self.ignoresMouseEvents = true
         self.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.popUpMenuWindow)))
         self.collectionBehavior = [
             .canJoinAllSpaces,

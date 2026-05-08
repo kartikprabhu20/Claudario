@@ -53,6 +53,7 @@ final class OverlayWindowController: NSObject,
         )
         super.init()
         self.scene.sceneDelegate = self
+        self.scene.onTick = { [weak self] in self?.updateClickThrough() }
         rebuild()
         observeChanges()
     }
@@ -92,7 +93,26 @@ final class OverlayWindowController: NSObject,
 
     func hide() {
         releaseControl()
+        window.ignoresMouseEvents = true
         window.orderOut(nil)
+    }
+
+    private func updateClickThrough() {
+        guard window.isVisible else { return }
+        let shouldCapture: Bool
+        switch scene.state {
+        case .walking:
+            shouldCapture = false
+        case .idle, .controlled:
+            let rectInScene = scene.mascotFrameInScene()
+            let rectInWindow = skView.convert(rectInScene, to: nil)
+            let rectInScreen = window.convertToScreen(rectInWindow)
+            shouldCapture = rectInScreen.contains(NSEvent.mouseLocation)
+        }
+        let target = !shouldCapture
+        if window.ignoresMouseEvents != target {
+            window.ignoresMouseEvents = target
+        }
     }
 
     private func observeChanges() {

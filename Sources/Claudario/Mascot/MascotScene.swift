@@ -7,6 +7,7 @@ protocol MascotSceneDelegate: AnyObject {
 
 final class MascotScene: SKScene {
     weak var sceneDelegate: MascotSceneDelegate?
+    var onTick: (() -> Void)?
 
     private let mascotNode = SKNode()
     private let body = SKShapeNode()
@@ -70,6 +71,10 @@ final class MascotScene: SKScene {
     override func didChangeSize(_ oldSize: CGSize) {
         positionAtStart()
         clampCurrentX()
+    }
+
+    override func update(_ currentTime: TimeInterval) {
+        onTick?()
     }
 
     private func addChildNodes() {
