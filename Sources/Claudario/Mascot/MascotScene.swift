@@ -137,7 +137,7 @@ final class MascotScene: SKScene {
         body.fillColor = palette.body
 
         decorationNode.removeAllChildren()
-        v.buildDecorations(into: decorationNode, size: s)
+        v.buildDecorations(into: decorationNode, size: s, palette: palette)
 
         let eyeR: CGFloat = s * 0.12
         let eyePath = CGPath(
@@ -410,6 +410,10 @@ final class MascotScene: SKScene {
         body.fillColor = palette.body
         leftFoot.fillColor = palette.foot
         rightFoot.fillColor = palette.foot
+        // Variant decorations may derive accents from the palette
+        // (e.g. dog snout uses foot color), so rebuild them too.
+        decorationNode.removeAllChildren()
+        variant.buildDecorations(into: decorationNode, size: mascotSize, palette: palette)
     }
 
     func setVariant(index: Int) {

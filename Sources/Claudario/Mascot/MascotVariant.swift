@@ -222,8 +222,10 @@ enum MascotVariant: Int, CaseIterable {
 
     /// Adds variant-specific decorations (inner ears, nose, whiskers, etc.)
     /// to `parent`. Default: nothing. Caller is responsible for clearing
-    /// `parent` before calling.
-    func buildDecorations(into parent: SKNode, size s: CGFloat) {
+    /// `parent` before calling. `palette` is passed so variants that
+    /// derive accent colors from the body/foot pair (e.g. the dog snout)
+    /// can re-tint when the user cycles the palette.
+    func buildDecorations(into parent: SKNode, size s: CGFloat, palette: MascotColor) {
         let dark = NSColor.black.withAlphaComponent(0.65)
 
         switch self {
@@ -276,23 +278,43 @@ enum MascotVariant: Int, CaseIterable {
             }
 
         case .dog:
-            // Black nose at the top of the snout area.
-            let nose = SKShapeNode(ellipseOf: CGSize(width: s * 0.16, height: s * 0.12))
-            nose.position = CGPoint(x: 0, y: s * 0.32)
+            // Snout: two overlapping rounded lobes in the foot color so the
+            // muzzle reads as a darker patch against the body. Drawn first
+            // so the nose covers the seam at the top and the tongue
+            // dangles in front. The two strokes crossing in the middle
+            // give the chin its characteristic vertical seam.
+            let snoutFill = palette.foot
+            let snoutStroke = palette.foot
+            let lobeSize = CGSize(width: s * 0.34, height: s * 0.36)
+            for sign: CGFloat in [-1, 1] {
+                let lobe = SKShapeNode(ellipseOf: lobeSize)
+                lobe.position = CGPoint(x: sign * s * 0.13, y: s * 0.22)
+                lobe.fillColor = snoutFill
+                lobe.strokeColor = snoutStroke
+                lobe.lineWidth = 1.0
+                parent.addChild(lobe)
+            }
+
+            // Black nose, sitting at the seam where the two lobes meet.
+            let nose = SKShapeNode(ellipseOf: CGSize(width: s * 0.18, height: s * 0.13))
+            nose.position = CGPoint(x: 0, y: s * 0.34)
             nose.fillColor = dark
             nose.strokeColor = .clear
             parent.addChild(nose)
-            // Tiny pink tongue dropping from below the nose.
+
+            // Pink tongue hanging below the nose, poking out under the
+            // muzzle's bottom edge.
             let tongue = SKShapeNode()
             let tp = CGMutablePath()
-            tp.move(to: CGPoint(x: -s * 0.06, y: s * 0.24))
+            tp.move(to: CGPoint(x: -s * 0.07, y: s * 0.22))
             tp.addQuadCurve(
-                to: CGPoint(x: s * 0.06, y: s * 0.24),
-                control: CGPoint(x: 0, y: s * 0.10))
+                to: CGPoint(x: s * 0.07, y: s * 0.22),
+                control: CGPoint(x: 0, y: s * 0.02))
             tp.closeSubpath()
             tongue.path = tp
-            tongue.fillColor = NSColor(calibratedRed: 0.92, green: 0.18, blue: 0.22, alpha: 1.0)
-            tongue.strokeColor = .clear
+            tongue.fillColor = NSColor(calibratedRed: 0.93, green: 0.18, blue: 0.22, alpha: 1.0)
+            tongue.strokeColor = NSColor.black.withAlphaComponent(0.25)
+            tongue.lineWidth = 0.8
             parent.addChild(tongue)
 
         case .owl:
