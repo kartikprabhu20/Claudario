@@ -1,8 +1,10 @@
-# Claudario: Your terminal’s favourite sidekick.
+# Claudario: Your terminal's favourite sidekick.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform: macOS 13+](https://img.shields.io/badge/platform-macOS%2013%2B-blue.svg)](#requirements)
+[![Platform: Windows 10+](https://img.shields.io/badge/platform-Windows%2010%2B-blue.svg)](#requirements)
 [![Swift 5.9+](https://img.shields.io/badge/swift-5.9%2B-orange.svg)](https://swift.org)
+[![.NET 8](https://img.shields.io/badge/.NET-8-purple.svg)](https://dotnet.microsoft.com)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#contributing)
 
 **Claudario is open source under the [MIT License](LICENSE).** Issues
@@ -13,7 +15,7 @@ and pull requests are welcome — see [Contributing](#contributing).
 <video src="https://github.com/user-attachments/assets/7e2b1b29-7870-4d52-8aaa-651d777d2762" width="100%" autoplay loop muted playsinline>
 </video>
 
-Claudario is a lightweight desktop mascot that brings the internal state of Claude Code to life. Instead of checking your terminal for progress, just look at your Dock. Claudario walks, jumps, and reacts in real-time to your development workflow, chirping with a chime when a task is done, and bouncing playfully when Claude needs your input. It’s a bit of personality for your workspace that keeps you informed without the context-switching.
+Claudario is a lightweight desktop mascot that brings the internal state of Claude Code to life. Instead of checking your terminal for progress, just look at your Dock (macOS) or taskbar (Windows). Claudario walks, jumps, and reacts in real-time to your development workflow, chirping with a chime when a task is done, and bouncing playfully when Claude needs your input. It's a bit of personality for your workspace that keeps you informed without the context-switching.
 
 ---
 
@@ -60,10 +62,8 @@ Claudario is a lightweight desktop mascot that brings the internal state of Clau
 
 ## What you get
 
-- Menu-bar app (no Dock icon — `LSUIElement = true`).
-- Transparent, click-through overlay window pinned to the Dock area
-  (strip height is 2× the Dock height to give the mascot headroom for
-  jumps and tall activity props).
+- Menu-bar app on macOS (`LSUIElement = true`), system-tray app on Windows — no Dock or taskbar button in either case.
+- Transparent, click-through overlay window pinned to the Dock area (macOS) or taskbar strip (Windows). Strip height is 2× the Dock/taskbar height to give the mascot headroom for jumps and tall activity props.
 - Procedurally-drawn mascot:
   - **Idle** when no Claude session is active — blinks every few
     seconds and glances left/right on a non-metronomic rhythm so it
@@ -74,37 +74,34 @@ Claudario is a lightweight desktop mascot that brings the internal state of Clau
     (`🌐`), *planning* (`📋`), *deep thinking* (`💭`), *compacting*
     (`🌀`), and plain *thinking* between tool calls (`❓`). Driven
     by the `tool_name` field on each `PreToolUse` hook.
-  - **Jumps + chime** (`Glass`) when Claude finishes a turn.
-  - **Bounces + tone** (`Funk`) when Claude needs permission or asks a
-    question.
+  - **Jumps + chime** when Claude finishes a turn.
+  - **Bounces + tone** when Claude needs permission or asks a question.
 - **Interactive mode** — when the mascot is idle, click it and use:
   - **← →** to walk, **↑** to jump with chime, **Esc** to release.
-  - **1–0** (number row) to preview each of the 10 activity
-    animations.
-  - **`,`/`.`** (or **`<`/`>`**) to shrink/grow the mascot, **`c`**
-    to cycle through 10 colors, and **`v`** to cycle through 7 mascot
-    variants (Classic, Egg, Cat, Dog, Owl, Panda, Robot). Last size,
-    color, and variant persist across launches.
+  - **1–0** (number row) to preview each of the 10 activity animations.
+  - **`,`/`.`** to shrink/grow the mascot, **`c`** to cycle through
+    10 colors, and **`v`** to cycle through 7 mascot variants (Classic,
+    Egg, Cat, Dog, Owl, Panda, Robot). Last size, color, and variant
+    persist across launches.
 - **Pet the mascot** — wag the cursor back-and-forth over the
   mascot's head and it reacts like a real pet: eyes squint into happy
   crescents and the body sways. If it was walking, it stops to enjoy
-  the petting and resumes when you let go. Reaction fades within ~1 s
-  of stopping.
+  the petting and resumes when you let go.
 - **Dino-runner mini-game** — press **`g`** while the mascot is in
-  controlled-idle to launch a Chrome-style runner inside the Dock
+  controlled-idle to launch a Chrome-style runner inside the taskbar/Dock
   strip. Mascot pinned left, score bottom-right, obstacles in the
-  mascot's color. **↑** to jump, **R** to restart after a hit, **Esc**
-  to exit. High score persists across launches.
-- Auto-recomputes its position when the Dock is moved, hidden, or you
-  switch Spaces / displays.
+  mascot's color. **↑** to jump, **R** to restart, **Esc** to exit.
+  High score persists across launches.
 - Loopback-only HTTP server (not reachable off-host).
 - One-click install / uninstall of Claude Code hooks (with backup of
   your existing `settings.json`).
-- Optional Launch-at-Login.
+- Optional Launch at Login.
 
 ---
 
 ## Requirements
+
+### macOS
 
 - **macOS 13** (Ventura) or newer (`SMAppService` and modern `Network`
   framework features).
@@ -113,9 +110,18 @@ Claudario is a lightweight desktop mascot that brings the internal state of Clau
 - **Claude Code** installed (`npm i -g @anthropic-ai/claude-code` or
   whichever installation method you use).
 
+### Windows
+
+- **Windows 10** (build 1803 or later) or **Windows 11**, 64-bit.
+  `curl.exe` is built into Windows 10 1803+ so no extra tools are needed.
+- **.NET 8 SDK** — download from [dot.net](https://dotnet.microsoft.com/download).
+- **Claude Code** installed (same as above).
+
 ---
 
 ## Build & first run
+
+### macOS
 
 ```bash
 git clone <this-repo> Claudario
@@ -149,11 +155,58 @@ About Claudario
 Quit
 ```
 
+### Windows
+
+```powershell
+git clone <this-repo> Claudario
+cd Claudario\windows
+.\build.ps1
+.\Claudario.Windows\bin\Release\net8.0-windows\Claudario.exe
+```
+
+You should see:
+
+1. A small orange circle appear in the **system tray** (bottom-right
+   notification area). If it's hidden, click the `^` arrow to show
+   overflow icons.
+2. A small mascot at the bottom of your main display, sitting just
+   above the taskbar.
+
+Right-click the tray icon to get the menu:
+
+```
+Enabled                              ✓
+Launch at Login
+─────────────────────────────────
+Install Claude Code Hooks
+Uninstall Claude Code Hooks
+─────────────────────────────────
+Test: Walk + Jump
+Test: Notify
+─────────────────────────────────
+Show Controls…
+─────────────────────────────────
+Quit
+```
+
 Try **Test: Walk + Jump** first — the mascot should walk for ~4 seconds
 and then jump with a chime. **Test: Notify** does the bounce + tone.
 **Show Controls…** opens a dialog listing every key binding for
 interactive mode. These verify the renderer and audio path before you
 wire up Claude Code.
+
+#### Self-contained single-file build (Windows)
+
+To produce a standalone `.exe` that doesn't need .NET installed on the
+target machine:
+
+```powershell
+dotnet publish Claudario.Windows\Claudario.Windows.csproj `
+    -c Release -r win-x64 --self-contained `
+    -p:PublishSingleFile=true
+```
+
+Output lands in `Claudario.Windows\bin\Release\net8.0-windows\win-x64\publish\`.
 
 ---
 
@@ -161,11 +214,11 @@ wire up Claude Code.
 
 There are two pieces:
 
-1. **The app must be running.** Either launch it manually
-   (`open build/Claudario.app`) or enable **Launch at Login** from the
-   menu so it starts automatically whenever you log in.
+1. **The app must be running.** Either launch it manually or enable
+   **Launch at Login** from the menu so it starts automatically.
 2. **Claude Code hooks must be installed** into your settings file.
-   This is done once. Click **Install Claude Code Hooks** from the menu.
+   This is done once. Click **Install Claude Code Hooks** from the
+   menu (menu-bar on macOS, right-click tray icon on Windows).
 
 That's it. Open a new terminal, run `claude` in any directory, ask it to
 do something multi-step (e.g. *"add a function and run the tests"*) and
@@ -178,21 +231,22 @@ permission, and jump when it finishes.
 
 ### What "Install Claude Code Hooks" actually does
 
-It's a non-destructive merge into `~/.claude/settings.json`:
+It's a non-destructive merge into `~/.claude/settings.json`
+(macOS/Linux) or `%USERPROFILE%\.claude\settings.json` (Windows):
 
-1. Copies the bundled hook script into `~/.claudario/hook`
-   (a 7-line bash file that just `curl`s the hook payload to the running
-   app).
-2. If `~/.claude/settings.json` already exists, writes a timestamped
-   backup next to it (e.g. `settings.json.bak.1715079600`).
+1. Copies the bundled hook script into `~/.claudario/hook` (macOS —
+   a 7-line bash file) or `%USERPROFILE%\.claudario\hook.cmd` (Windows
+   — a batch file that calls `curl.exe`).
+2. If the settings file already exists, writes a timestamped backup next
+   to it (e.g. `settings.json.bak.1715079600`).
 3. Adds (or updates) entries under the `hooks` key for these events:
-   `UserPromptSubmit`, `PreToolUse`, `Stop`, `SubagentStop`,
-   `Notification`, `SessionStart`, `SessionEnd`. Existing entries you
-   already have are kept.
+   `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`,
+   `SubagentStop`, `Notification`, `SessionStart`, `SessionEnd`,
+   `PreCompact`. Existing entries you already have are kept.
 4. If a previous Claudario entry exists, it's deduplicated, not
    appended (safe to click "Install" multiple times).
 
-The injected entry looks like this:
+The injected entry looks like this on **macOS**:
 
 ```json
 {
@@ -205,12 +259,31 @@ The injected entry looks like this:
         ]
       }
     ]
-    // ... same shape for the other six events
+  }
+}
+```
+
+And like this on **Windows** (uses `cmd.exe` so Claude Code doesn't
+need to know about `.cmd` files):
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "cmd.exe /c \"C:\\Users\\you\\.claudario\\hook.cmd\"" }
+        ]
+      }
+    ]
   }
 }
 ```
 
 ### Verifying the hook is wired up
+
+**macOS:**
 
 ```bash
 # Confirm the script is there:
@@ -229,6 +302,25 @@ echo '{"hook_event_name":"Stop","session_id":"manual"}' \
 # Mascot should jump + chime.
 ```
 
+**Windows (PowerShell):**
+
+```powershell
+# Confirm the script is there:
+Get-Content "$env:USERPROFILE\.claudario\hook.cmd"
+
+# Confirm settings.json contains your hook command:
+Select-String "claudario" "$env:USERPROFILE\.claude\settings.json"
+
+# End-to-end: send a test event and watch the mascot:
+'{"hook_event_name":"UserPromptSubmit","session_id":"manual"}' |
+    cmd /c "$env:USERPROFILE\.claudario\hook.cmd"
+# Mascot should start walking.
+
+'{"hook_event_name":"Stop","session_id":"manual"}' |
+    cmd /c "$env:USERPROFILE\.claudario\hook.cmd"
+# Mascot should jump + chime.
+```
+
 ---
 
 ## Interactive mode (click to control)
@@ -241,7 +333,7 @@ small toy you can drive yourself.
 Move the cursor over the mascot and **click**. The app activates and
 the window takes keyboard focus. Outside of the mascot's bounding box
 the overlay is still fully click-through, so you can still interact
-with the Dock as normal.
+with the Dock / taskbar as normal.
 
 ### Key map
 
@@ -252,14 +344,14 @@ with the Dock as normal.
 | ↑ Up                   | Jump + coin chime (auto-repeat ignored)                      |
 | Esc                    | Release control → idle                                       |
 | **1 2 3 4 5 6 7 8 9 0**| Preview each activity (1=idle, 2=thinking, 3=reading, 4=coding, 5=running, 6=planning, 7=browsing, 8=deep-thinking, 9=compacting, 0=dancing) |
-| **`,`** or **`<`**     | Shrink mascot one step (24 → 88 pt range, 8 pt steps)        |
-| **`.`** or **`>`**     | Grow mascot one step                                         |
+| **`,`**                | Shrink mascot one step (24 → 88 pt range, 8 pt steps)        |
+| **`.`**                | Grow mascot one step                                         |
 | **c**                  | Cycle to next color in the 10-color palette                  |
 | **v**                  | Cycle to next mascot variant (Classic, Egg, Cat, Dog, Owl, Panda, Robot) |
 | **g**                  | Start the dino-runner mini-game (only while activity is `idle`) |
 
-Size, color, and variant choices all persist across app launches via
-`UserDefaults`.
+Size, color, and variant choices all persist across app launches
+(macOS: `UserDefaults`; Windows: Registry `HKCU\Software\Claudario`).
 
 ### Releasing control
 
@@ -267,26 +359,22 @@ Control is released — and keyboard focus is dropped — when any of
 these happen:
 
 - You press **Esc**.
-- You click anywhere outside the mascot (Dock, desktop, another app).
-- You ⌘-Tab to another app, or it otherwise becomes active.
+- You click anywhere outside the mascot (Dock/taskbar, desktop, another app).
 - Claude Code fires a hook event that would start walking
   (`UserPromptSubmit` / `PreToolUse`). Claude's activity always wins
   — the mascot returns to its job.
 
 ### How it works
 
-While `walking`, the entire overlay window is click-through —
-`hitTest` returns `nil` for every point so clicks reach the Dock. While
-`idle` or `controlled`, hit-testing is restricted to the mascot's
-bounding rect (in scene coordinates), so only that small region grabs
-mouse events; the rest of the strip is still click-through.
+While `walking`, the entire overlay window is click-through (macOS:
+`hitTest` returns `nil`; Windows: `WS_EX_TRANSPARENT` style is set).
+While `idle` or `controlled`, hit-testing is restricted to the mascot's
+bounding rect so only that small region grabs mouse events.
 
-To receive `keyDown`, the borderless overlay window flips
-`canBecomeKey` to `true` only while controlled, then drops it back to
-`false` on release. A global mouse-down monitor is installed during
-control so we notice clicks elsewhere on the system. The same coin
-chime that plays on Claude turn completion fires on a user-initiated
-jump.
+To receive keyboard input, the window removes `WS_EX_NOACTIVATE`
+(Windows) or flips `canBecomeKey` to `true` (macOS) while in
+controlled mode, then restores it on release. A global mouse-down
+monitor is installed so clicks elsewhere on the system release control.
 
 ---
 
@@ -322,10 +410,7 @@ smoothly instead of snapping off.
 
 The level drives the visuals directly per frame: eye `yScale` shrinks
 proportionally, and a small `sin`-based body rotation adds the sway —
-no separate state machine to fall out of sync. Implementation lives in
-`MascotScene.tickPetting(currentTime:)`. The cursor position arrives
-each frame via the controller-supplied `mouseLocationProvider` closure
-so the scene never touches AppKit windowing directly.
+no separate state machine to fall out of sync.
 
 ---
 
@@ -340,19 +425,18 @@ play.
 1. Click the mascot to enter controlled mode (you'll see it stop
    blinking and take focus).
 2. Press **`g`**. The mascot snaps to the left of the strip, a faint
-   ground line appears, the score readout shows up at the bottom-right
-   (right of the Dock), and obstacles begin scrolling in from the
-   right.
+   ground line appears, the score readout shows up at the bottom-right,
+   and obstacles begin scrolling in from the right.
 
 `g` is only accepted while the activity is `idle` — i.e. no Claude
-session is running and you haven't selected a preview animation. This
-keeps the game out of the way of Claude's actual work.
+session is running and you haven't selected a preview animation.
 
 ### Controls during play
 
 | Key   | Effect                                                      |
 | ----- | ----------------------------------------------------------- |
 | ↑     | Jump (single jump per landing; auto-repeat ignored)         |
+| Space | Jump (alternative)                                          |
 | R     | Restart after a collision                                   |
 | Esc   | Exit the game and return the mascot to its idle behavior    |
 
@@ -363,26 +447,14 @@ A click anywhere outside the overlay also exits the game.
 You earn one point for every obstacle that scrolls past you. The
 obstacle gap shrinks and the scroll speed ramps up as your score
 climbs (capped so the run stays survivable). Your best run is stored
-in `UserDefaults` under `claudario.dinoHighScore` and shown next to
-the live score as `SCORE NNN HI NNN`.
+and shown next to the live score as `SCORE NNN HI NNN`.
 
 ### Behavior while Claude is working
 
-If a Claude hook fires mid-game (e.g. you forgot you started a long
-task in another terminal), the mascot does **not** abandon the game —
-the latest Claude state is buffered and replayed when you exit, so
-the mascot resumes whatever Claude is doing right after you press
+If a Claude hook fires mid-game, the mascot does **not** abandon the
+game — the latest Claude state is buffered and replayed when you exit,
+so the mascot resumes whatever Claude is doing right after you press
 **Esc**.
-
-### How it's drawn
-
-The game is implemented in `Sources/Claudario/Mascot/DinoGame.swift`
-as a `DinoGameController` owned by `MascotScene`. Obstacles are
-`SKShapeNode` rounded rects filled with the current mascot body color
-(stroke uses the foot color); the jump uses a velocity + gravity
-integrator on the existing `mascotNode`, so the mascot itself is the
-playable character — no separate sprite. Collision is rect-overlap
-against an inset mascot rect for forgiving grazes.
 
 ---
 
@@ -397,13 +469,11 @@ overriding earlier:
 | Project        | `<project>/.claude/settings.json` | Only sessions in that project      |
 | Project local  | `<project>/.claude/settings.local.json` | That project, machine-local |
 
-**Claudario installs into the user-global file** (`~/.claude/settings.json`),
-so once you click **Install Claude Code Hooks**, every Claude Code
-session — in any directory, on any project, on this machine — fires the
-hooks.
+**Claudario installs into the user-global file**, so once you click
+**Install Claude Code Hooks**, every Claude Code session — in any
+directory, on any project, on this machine — fires the hooks.
 
-Combined with **Launch at Login**, that gives you a fully default
-setup:
+Combined with **Launch at Login**, that gives you a fully default setup:
 
 1. **Menu → Launch at Login** ✓ (so the app starts on every login)
 2. **Menu → Install Claude Code Hooks** ✓ (so every `claude` session
@@ -411,6 +481,11 @@ setup:
 
 After that, you can forget about it — it just works whenever you open
 a new terminal and type `claude`.
+
+> **Note (Windows):** Launch at Login writes a registry key
+> (`HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run`), so it works
+> from any path — you don't need to move the `.exe` to a specific
+> location first.
 
 > If you want to **disable** Claudario for a specific project (e.g.
 > noisy CI scripts running `claude` in headless mode), drop a small
@@ -422,6 +497,8 @@ a new terminal and type `claude`.
 
 ## Architecture
 
+### macOS
+
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │ Claude Code  (CLI process you run in a terminal)                    │
@@ -432,8 +509,7 @@ a new terminal and type `claude`.
 │     /bin/bash ~/.claudario/hook  <stdin: JSON payload>               │
 └────────────────────────┬─────────────────────────────────────────────┘
                          │
-                         │  stdin: { "hook_event_name": "...",
-                         │           "session_id": "...", ... }
+                         │  stdin: { "hook_event_name": "...", ... }
                          ▼
 ┌──────────────────────────────────────────────────────────────────────┐
 │ ~/.claudario/hook  (7 lines of bash)                                 │
@@ -442,42 +518,69 @@ a new terminal and type `claude`.
 │   curl -m 1 -s -X POST --data-binary @-                              │
 │        http://127.0.0.1:$PORT/event   || true                        │
 └────────────────────────┬─────────────────────────────────────────────┘
-                         │
-                         │  HTTP POST /event
-                         │  { "hook_event_name": "...", ... }
+                         │ HTTP POST /event
                          ▼
 ┌──────────────────────────────────────────────────────────────────────┐
 │ Claudario.app                                                        │
+│   EventServer (NWListener) → EventRouter → MascotScene (SpriteKit)  │
+│   StatusItemController (menu bar) · HookInstaller · SoundPlayer     │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### Windows
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│ Claude Code  (CLI process you run in a terminal)                    │
+│                                                                      │
+│   reads %USERPROFILE%\.claude\settings.json on launch               │
+│                                                                      │
+│   on each event, spawns:                                             │
+│     cmd.exe /c "%USERPROFILE%\.claudario\hook.cmd"                   │
+└────────────────────────┬─────────────────────────────────────────────┘
+                         │
+                         │  stdin: { "hook_event_name": "...", ... }
+                         ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│ %USERPROFILE%\.claudario\hook.cmd  (5-line batch file)              │
+│                                                                      │
+│   curl.exe -s -m 1 -X POST --data-binary @-                          │
+│       http://127.0.0.1:47821/event   (exit /b 0)                     │
+└────────────────────────┬─────────────────────────────────────────────┘
+                         │ HTTP POST /event
+                         ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│ Claudario.exe  (.NET 8 WPF)                                         │
 │                                                                      │
 │   ┌──────────────┐     ┌─────────────┐    ┌────────────────────────┐ │
-│   │ EventServer  ├────►│ EventRouter ├───►│ MascotScene (SpriteKit)│ │
-│   │ NWListener   │     │ state +     │    │  state: idle/walking/  │ │
-│   │ loopback:port│     │ activity    │    │         controlled     │ │
-│   │              │     │ per session │    │  activity: 10 visuals  │ │
+│   │ EventServer  ├────►│ EventRouter ├───►│ MascotScene (SkiaSharp)│ │
+│   │ HttpListener │     │ state +     │    │  state: idle/walking/  │ │
+│   │ loopback:    │     │ activity    │    │         controlled/    │ │
+│   │ 47821        │     │ per session │    │         playing        │ │
 │   └──────────────┘     └─────────────┘    └────────────────────────┘ │
-│                              ▲                  │                     │
-│                              │                  ▼                     │
-│                   ┌──────────┴───────┐    OverlayWindow               │
-│                   │ MascotSettings   │    (transparent, click-through,│
-│                   │ (UserDefaults:   │    level=popUpMenu, 2× Dock    │
-│                   │  size, color)    │    height for headroom)       │
-│                   └──────────────────┘                                │
+│                                                │                     │
+│                                                ▼                     │
+│   ┌──────────────────┐    OverlayWindow (WPF, transparent, topmost, │
+│   │ MascotSettings   │    WS_EX_TRANSPARENT click-through, WH_MOUSE_LL│
+│   │ (Registry:       │    hook for click-to-control)                 │
+│   │  HKCU\Software\  │                                               │
+│   │  Claudario)      │                                               │
+│   └──────────────────┘                                               │
 │                                                                       │
-│   ┌──────────────┐                                                   │
-│   │ SoundPlayer  │   plays NSSound("Glass")  on coin                 │
-│   │              │   plays NSSound("Funk")   on notify               │
-│   └──────────────┘                                                   │
+│   ┌─────────────────┐    ┌─────────────────────┐                     │
+│   │ SoundPlayer     │    │ HookInstaller       │                     │
+│   │ (Windows.Media\ │    │ (patches            │                     │
+│   │  Chimes.wav,    │    │  settings.json)     │                     │
+│   │  Notify.wav)    │    │                     │                     │
+│   └─────────────────┘    └─────────────────────┘                     │
 │                                                                       │
-│   ┌─────────────────────┐    ┌─────────────────────┐                 │
-│   │ StatusItemController│    │ HookInstaller       │                 │
-│   │ (menu bar UI)       │    │ (patches            │                 │
-│   │                     │    │  ~/.claude/         │                 │
-│   │                     │    │  settings.json)     │                 │
-│   └─────────────────────┘    └─────────────────────┘                 │
+│   NotifyIcon (system tray) with ContextMenuStrip                      │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Modules and responsibilities
+
+**macOS (Swift):**
 
 | Source file                              | Job                                                                                  |
 | ---------------------------------------- | ------------------------------------------------------------------------------------ |
@@ -489,9 +592,9 @@ a new terminal and type `claude`.
 | `Overlay/InteractiveContentView.swift`   | Hit-tests the mascot region (so the rest stays click-through) and routes mouse / key events.    |
 | `Mascot/MascotState.swift`               | `enum MascotState { idle, walking, controlled, playing }`.                           |
 | `Mascot/DinoGame.swift`                  | `DinoGameController` — obstacles, score HUD, jump physics, collision; runs while state is `.playing`. |
-| `Mascot/MascotActivity.swift`            | `enum MascotActivity` (10 cases including `.idle` aliveness) + `prop` emoji, speed multiplier, tool→activity map. |
+| `Mascot/MascotActivity.swift`            | `enum MascotActivity` (10 cases) + `prop` emoji, speed multiplier, tool→activity map. |
 | `Mascot/MascotPalette.swift`             | 10 named `(body, foot)` color tuples.                                                |
-| `Mascot/MascotVariant.swift`             | 7 mascot silhouettes (Classic, Egg, Cat, Dog, Owl, Panda, Robot); per-variant body path, eye anchor, and decoration sub-nodes. |
+| `Mascot/MascotVariant.swift`             | 7 mascot silhouettes; per-variant body path, eye anchor, and decoration sub-nodes.   |
 | `Mascot/MascotScene.swift`               | SpriteKit scene; draws procedurally; supports live size/color/variant/activity changes. |
 | `Server/EventServer.swift`               | NWListener bound to `.loopback`, parses minimal HTTP/1.1 POSTs.                      |
 | `Server/EventRouter.swift`               | Per-`session_id` state machine; tracks walking + current activity; emits callbacks.  |
@@ -500,14 +603,30 @@ a new terminal and type `claude`.
 | `MenuBar/StatusItemController.swift`     | Menu-bar `NSStatusItem`; toggles, install/uninstall, tests, **Show Controls…**.      |
 | `Install/HookInstaller.swift`            | JSON merge into `~/.claude/settings.json`, with backup and uninstall.                |
 
+**Windows (C# / .NET 8):**
+
+| Source file                              | Job                                                                                  |
+| ---------------------------------------- | ------------------------------------------------------------------------------------ |
+| `App.xaml.cs`                            | WPF entry point; creates overlay, server, router; wires callbacks; owns NotifyIcon tray menu. |
+| `Overlay/OverlayWindow.xaml.cs`          | Transparent topmost WPF window; `WS_EX_TRANSPARENT` click-through; permanent `WH_MOUSE_LL` hook for click-to-control; keyboard routing. |
+| `Overlay/TaskbarGeometry.cs`             | `SHAppBarMessage` → taskbar rect; strip height = 2× taskbar height.                 |
+| `Mascot/MascotState.cs`                  | `enum MascotState { Idle, Walking, Controlled, Playing }`.                           |
+| `Mascot/DinoGame.cs`                     | Data-struct game loop; velocity + gravity integrator; obstacle spawning, collision, HUD. |
+| `Mascot/MascotActivity.cs`               | `enum MascotActivity` (10 cases) + prop emoji, speed multiplier, tool→activity map. |
+| `Mascot/MascotPalette.cs`                | 10 `(Body, Foot)` `SKColor` tuples.                                                 |
+| `Mascot/MascotVariant.cs`                | 7 silhouettes via SkiaSharp `SKPath`; per-variant eye anchor and decoration drawing. |
+| `Mascot/MascotScene.cs`                  | Per-frame rendering via `CompositionTarget.Rendering`; all activity animations; petting; game lifecycle. |
+| `Server/EventServer.cs`                  | `HttpListener` on `http://127.0.0.1:47821/`; parses body; routes to `EventRouter`.  |
+| `Server/EventRouter.cs`                  | Per-`session_id` state machine identical in logic to the Swift version.              |
+| `Settings/MascotSettings.cs`             | Registry `HKCU\Software\Claudario` wrapper for color, size, variant, high score.    |
+| `Audio/SoundPlayer.cs`                   | `System.Media.SoundPlayer` async playback; uses `C:\Windows\Media\` system sounds.  |
+| `Install/HookInstaller.cs`               | JSON merge into `%USERPROFILE%\.claude\settings.json` via `System.Text.Json.Nodes`. |
+
 ---
 
 ## How it connects to Claude Code (hooks)
 
-Claude Code provides a [hooks
-system](https://docs.claude.com/en/docs/claude-code/hooks-guide) that
-fires on key lifecycle events. Each registered hook can spawn an
-arbitrary shell command and feeds it a JSON payload on stdin.
+Claude Code provides a [hooks system](https://docs.claude.com/en/docs/claude-code/hooks-guide) that fires on key lifecycle events. Each registered hook can spawn an arbitrary shell command and feeds it a JSON payload on stdin.
 
 The events Claudario subscribes to:
 
@@ -523,11 +642,6 @@ The events Claudario subscribes to:
 | `SubagentStop`     | A spawned subagent finishes                                       | Jump + chime                                    |
 | `SessionEnd`       | The session terminates                                            | Clear state                                     |
 
-The JSON payload Claude Code sends includes (at minimum)
-`hook_event_name`, `session_id`, `transcript_path`, `cwd`, and — for
-tool events — `tool_name` and `tool_input`. We currently use
-`hook_event_name`, `session_id`, and `tool_name`.
-
 ### Tool → activity mapping
 
 | Tool name(s)                                | Activity      | Prop |
@@ -540,8 +654,9 @@ tool events — `tool_name` and `tool_input`. We currently use
 | `Task` (subagent dispatch)                  | `deepThink`   | 💭   |
 | (any other / between tool calls)            | `thinking`    | ❓   |
 
-Mapping lives in `MascotActivity.category(forTool:)`. Unknown / future
-tools fall through to `thinking`.
+Mapping lives in `MascotActivity.category(forTool:)` (macOS) /
+`MascotActivity.Category(string)` (Windows). Unknown / future tools
+fall through to `thinking`.
 
 Two activities never come from hooks — they're test-only previews:
 
@@ -550,14 +665,13 @@ Two activities never come from hooks — they're test-only previews:
 | `compacting`  | 🌀    | `PreCompact` event, **or** key `9`   |
 | `dancing`     | 🎉    | key `0` (no hook ever produces this) |
 
-And one activity has no prop emoji at all but still has a visible
-animation — `idle` makes the mascot blink (≈3–6 s cadence with the
-occasional double-blink) and glance left/right on a separate ≈2–5 s
-rhythm so it doesn't look frozen between Claude turns.
+### Why a single script for every event
 
-### Why a single bash script for every event
+The hook script is intentionally trivial and must **never block Claude
+Code**. Non-zero `PreToolUse` exits would block tool use, so the
+script always returns 0 and times out fast (`-m 1`).
 
-The hook script (`~/.claudario/hook`) is intentionally trivial:
+**macOS** (`~/.claudario/hook`):
 
 ```bash
 #!/bin/bash
@@ -569,24 +683,28 @@ exec curl -s -m 1 -X POST \
     "http://127.0.0.1:$PORT/event" >/dev/null 2>&1 || true
 ```
 
-Properties that matter:
+**Windows** (`%USERPROFILE%\.claudario\hook.cmd`):
 
-- **`-m 1`** — 1-second timeout. If the app is closed, missing, or
-  unresponsive, the hook returns within 1 s.
-- **`|| true`** — non-zero exit codes from `curl` are swallowed.
-  Critically, `PreToolUse` hooks that return non-zero **block tool
-  use** in Claude Code; we never want a stale Claudario instance to
-  get in your way.
-- **`>/dev/null 2>&1`** — silent. No noise in your terminal.
-- **No state in the script** — the app holds all logic. The script
-  is interchangeable.
+```bat
+@echo off
+curl.exe -s -m 1 -X POST http://127.0.0.1:47821/event ^
+  -H "Content-Type: application/json" ^
+  --data-binary @- 2>nul
+exit /b 0
+```
+
+Both scripts share the same properties: 1-second timeout, silent
+failure, always return 0. `curl.exe` is built into Windows 10 1803+
+so no third-party tools are required.
 
 ### Why a port file
 
 The HTTP server tries port `47821` first; if that's already in use, it
-falls back to a random ephemeral port assigned by the kernel. Whatever
-port it ends up on is written to `~/.claudario/port` so the bash hook
-can find it without a complicated discovery protocol.
+falls back to a random ephemeral port assigned by the OS. On macOS the
+bash hook reads `~/.claudario/port` so it always finds the server. On
+Windows the batch hook currently hardcodes port `47821` — if you need
+to run two instances or the port is taken by another app, change
+`preferredPort` in `EventServer.cs`.
 
 ---
 
@@ -594,9 +712,9 @@ can find it without a complicated discovery protocol.
 
 `EventRouter` keeps a dictionary keyed by `session_id`:
 
-```swift
-struct SessionState { var isWalking: Bool; var lastSeen: Date }
-var sessions: [String: SessionState] = [:]
+```
+struct SessionState { isWalking: bool; lastSeen: DateTime }
+sessions: Dictionary<string, SessionState>
 ```
 
 Transitions:
@@ -606,31 +724,22 @@ Transitions:
 | `SessionStart`                    | create entry, `isWalking=false` | none                                                      |
 | `UserPromptSubmit`, `PreToolUse`  | `isWalking=true`                | If no session was walking before → call `onWalk()`        |
 | `PostToolUse`                     | refresh `lastSeen`              | none                                                      |
-| `Notification`                    | refresh `lastSeen`               | `onNotify()` (does not change walk state)                 |
-| `Stop`, `SubagentStop`            | `isWalking=false`                | If no session is still walking → `onIdle()` + `onCelebrate()` |
+| `Notification`                    | refresh `lastSeen`              | `onNotify()` (does not change walk state)                 |
+| `Stop`, `SubagentStop`            | `isWalking=false`               | If no session is still walking → `onIdle()` + `onCelebrate()` |
 | `SessionEnd`                      | remove entry                    | If no session is still walking → `onIdle()`               |
 
 Sessions idle for >5 min are auto-evicted to handle the case where
-`SessionEnd` doesn't fire (e.g. the user `kill`s the Claude process).
+`SessionEnd` doesn't fire (e.g. the user kills the Claude process).
 
 Concurrent sessions are handled correctly: walking persists as long as
 **at least one** session is in flight. The celebration only fires when
 **all** sessions have stopped.
 
-The mascot itself has two extra states beyond the hook-driven pair.
-`controlled` is entered by clicking the mascot while it's idle (see
-[Interactive mode](#interactive-mode-click-to-control)); `playing` is
-entered from `controlled` by pressing **`g`** to start the dino-runner
-(see [Dino-runner mini-game](#dino-runner-mini-game)). Neither is
-reached by hook events directly. Incoming `onWalk()` preempts
-`controlled` immediately, but during `playing` Claude state is buffered
-and replayed only when you exit the game.
-
 ---
 
 ## HTTP protocol on the wire
 
-The smallest thing that could possibly work:
+The smallest thing that could possibly work — identical on both platforms:
 
 - **Method**: `POST` (any path; we don't even check it).
 - **Body**: the JSON payload Claude Code piped to the hook script.
@@ -651,16 +760,18 @@ Content-Length: 0
 Connection: close
 ```
 
-The server is hand-rolled in `EventServer.swift` — about 90 lines —
-because pulling in a dependency for "POST one JSON blob and reply 204"
-felt absurd. It only handles enough HTTP/1.1 to find the
-`Content-Length` header and read the body.
+The macOS server is hand-rolled in `EventServer.swift` (~90 lines of
+`NWListener`). The Windows server uses `HttpListener` from the .NET
+BCL, which handles HTTP framing natively. Both parse `Content-Length`
+from the headers and route the body to `EventRouter`.
 
 ---
 
 ## File / directory layout
 
 ### In your home directory
+
+**macOS:**
 
 ```
 ~/.claudario/
@@ -672,44 +783,67 @@ felt absurd. It only handles enough HTTP/1.1 to find the
 └── settings.json.bak.<timestamp>  # automatic backup before each install
 ```
 
+**Windows:**
+
+```
+%USERPROFILE%\.claudario\
+├── hook.cmd            # batch bridge installed by HookInstaller
+
+%USERPROFILE%\.claude\
+├── settings.json                  # your Claude Code config (we patch this)
+└── settings.json.bak.<timestamp>  # automatic backup before each install
+```
+
 ### In the repo
 
 ```
 Claudario/
-├── Package.swift              # SwiftPM manifest (no dependencies)
-├── Info.plist.template        # Bundle plist (LSUIElement=true, etc.)
-├── build.sh                   # swift build → assemble .app bundle
-├── claudario-hook             # the bash bridge (gets bundled into .app)
+├── Package.swift              # macOS: SwiftPM manifest (no dependencies)
+├── Info.plist.template        # macOS: Bundle plist (LSUIElement=true, etc.)
+├── build.sh                   # macOS: swift build → assemble .app bundle
+├── claudario-hook             # macOS: bash bridge (gets bundled into .app)
 ├── README.md
-└── Sources/Claudario/
-    ├── main.swift
-    ├── AppDelegate.swift
-    ├── Overlay/
-    │   ├── DockGeometry.swift
-    │   ├── InteractiveContentView.swift
-    │   ├── OverlayWindow.swift
-    │   └── OverlayWindowController.swift
-    ├── Mascot/
-    │   ├── DinoGame.swift
-    │   ├── MascotActivity.swift
-    │   ├── MascotPalette.swift
-    │   ├── MascotScene.swift
-    │   ├── MascotState.swift
-    │   └── MascotVariant.swift
-    ├── Server/
-    │   ├── EventServer.swift
-    │   └── EventRouter.swift
-    ├── Settings/
-    │   └── MascotSettings.swift
-    ├── Audio/
-    │   └── SoundPlayer.swift
-    ├── MenuBar/
-    │   └── StatusItemController.swift
-    └── Install/
-        └── HookInstaller.swift
+├── Sources/Claudario/         # macOS Swift source
+│   ├── main.swift
+│   ├── AppDelegate.swift
+│   ├── Overlay/
+│   ├── Mascot/
+│   ├── Server/
+│   ├── Settings/
+│   ├── Audio/
+│   ├── MenuBar/
+│   └── Install/
+└── windows/                   # Windows C# source
+    ├── build.ps1              # dotnet build → Claudario.exe
+    ├── claudario-hook.cmd     # batch bridge (copied to output dir)
+    ├── Claudario.Windows.sln
+    └── Claudario.Windows/
+        ├── Claudario.Windows.csproj
+        ├── App.xaml(.cs)
+        ├── Overlay/
+        │   ├── OverlayWindow.xaml(.cs)
+        │   └── TaskbarGeometry.cs
+        ├── Mascot/
+        │   ├── DinoGame.cs
+        │   ├── MascotActivity.cs
+        │   ├── MascotPalette.cs
+        │   ├── MascotScene.cs
+        │   ├── MascotState.cs
+        │   └── MascotVariant.cs
+        ├── Server/
+        │   ├── EventServer.cs
+        │   └── EventRouter.cs
+        ├── Settings/
+        │   └── MascotSettings.cs
+        ├── Audio/
+        │   └── SoundPlayer.cs
+        └── Install/
+            └── HookInstaller.cs
 ```
 
 ### Build outputs
+
+**macOS:**
 
 ```
 .build/release/Claudario        # raw executable (SwiftPM)
@@ -717,30 +851,42 @@ build/Claudario.app/            # assembled .app bundle (build.sh output)
     Contents/
     ├── Info.plist
     ├── MacOS/Claudario
-    └── Resources/
-        └── claudario-hook
+    └── Resources/claudario-hook
+```
+
+**Windows:**
+
+```
+windows/Claudario.Windows/bin/Release/net8.0-windows/
+├── Claudario.exe
+├── Claudario.dll
+├── claudario-hook.cmd          # copied from windows/ by build
+└── SkiaSharp.dll, ...          # runtime dependencies
 ```
 
 ---
 
 ## Security model
 
-- **Loopback-only listener**:
-  `params.requiredInterfaceType = .loopback` on the `NWListener`. The
-  socket is never bound to a routable interface, so other machines on
-  your network cannot reach it.
+- **Loopback-only listener**: the socket is bound exclusively to
+  `127.0.0.1` (macOS: `params.requiredInterfaceType = .loopback`;
+  Windows: `HttpListener` prefix `http://127.0.0.1:`). Other machines
+  on your network cannot reach it.
 - **No authentication**: the server accepts any local POST. The
-  threat model is essentially "a process running on your machine
-  could send events", which is fine — the worst that happens is a
-  spurious mascot animation.
-- **Read-only outside `~/.claude/settings.json`**: the only files
-  Claudario writes to are `~/.claudario/{port,hook}` and the
-  `settings.json` patch (with backup).
-- **Hook script runs in your shell environment**, just like any
-  other Claude Code hook. Its only outbound action is `curl` to
-  `127.0.0.1`.
-- **No network access** from the app itself: the app neither makes
-  outbound HTTP requests nor talks to any cloud service.
+  threat model is essentially "a process running on your machine could
+  send events", which is fine — the worst that happens is a spurious
+  mascot animation.
+- **Minimal file writes**: the only files Claudario touches are
+  `~/.claudario/{port,hook}` (macOS) or `%USERPROFILE%\.claudario\hook.cmd`
+  (Windows), and the `settings.json` patch (with backup).
+- **Hook script runs in your shell environment** and its only outbound
+  action is `curl` to `127.0.0.1`.
+- **No network access** from the app itself: no outbound HTTP, no
+  cloud service.
+- **Windows Registry**: Claudario reads/writes only
+  `HKCU\Software\Claudario` (settings) and
+  `HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run` (Launch at Login).
+  No elevated/admin permissions are required.
 
 ---
 
@@ -748,80 +894,73 @@ build/Claudario.app/            # assembled .app bundle (build.sh output)
 
 ### Activity / palette / size
 
-Activities live in `Sources/Claudario/Mascot/MascotActivity.swift` —
-edit the `prop` emoji, speed multiplier, or tool category map there.
-The 10 colors are in `MascotPalette.swift`; size range (24–88 pt,
-step 8) is in `MascotSettings.swift`.
+Activities live in `MascotActivity.swift` (macOS) or `MascotActivity.cs`
+(Windows) — edit the `prop` emoji, speed multiplier, or tool category
+map there. The 10 colors are in `MascotPalette.*`; size range (24–88 pt,
+step 8) is in `MascotSettings.*`.
 
 ### Adding new mascot variants
 
-`Sources/Claudario/Mascot/MascotVariant.swift` defines each silhouette.
+`MascotVariant.swift` / `MascotVariant.cs` define each silhouette.
 To add a variant:
 
-1. Append a case to the `MascotVariant` enum and to `displayName`.
-2. Add a `case` in `bodyPath(size:)` that returns a `CGPath`. Keep the
-   path's lowest point at `y = 0` and centered on `x = 0`.
-3. Add an `eyeY(size:)` entry to anchor the eyes for the new shape.
-4. (Optional) Add a `case` in `buildDecorations(into:size:)` to attach
-   sub-nodes (whiskers, ears, antennas, etc.) — they're parented under
-   `body`, so they inherit every activity animation automatically.
-5. Bump the count shown in `StatusItemController.showControls()`.
+1. Append a case to the `MascotVariant` enum and to `displayName` (or
+   `AllCases` on Windows).
+2. Add a `case` in `bodyPath(size:)` / `BuildPath(float)` that returns
+   a path. Keep the path's lowest point at `y = 0` and centered on
+   `x = 0`.
+3. Add an `eyeY(size:)` / `EyeY(float)` entry to anchor the eyes.
+4. (Optional) Add decoration drawing to `buildDecorations` /
+   `DrawDecorations` for whiskers, ears, antennas, etc.
 
 ### Sounds
 
-Edit `Sources/Claudario/Audio/SoundPlayer.swift`:
+**macOS** — edit `SoundPlayer.swift`:
 
 ```swift
 case .coin:   name = "Glass"   // try "Hero", "Tink", "Submarine"
 case .notify: name = "Funk"    // try "Pop", "Blow", "Sosumi"
 ```
 
-System sounds live at `/System/Library/Sounds/`. To use a custom
-file, copy the `.wav` into the app bundle's `Resources/` directory in
-`build.sh` and load it with `NSSound(contentsOf:byReference:)`
-instead of `NSSound(named:)`.
+System sounds live at `/System/Library/Sounds/`.
 
-### Mascot art
+**Windows** — edit `SoundPlayer.cs`:
 
-`Sources/Claudario/Mascot/MascotScene.swift` builds the mascot from
-`SKShapeNode`s. To switch to sprite-sheet art:
-
-1. Drop your PNGs into a `Resources/Mascot.atlas/` folder.
-2. Replace `buildMascot()` with `SKSpriteNode(texture:)` plus
-   `SKAction.animate(with:timePerFrame:)` for the walk cycle.
-3. In `build.sh`, copy the atlas folder into the bundle's
-   `Resources/`.
-
-### Walk speed / mascot size
-
-Top of `MascotScene.swift`:
-
-```swift
-private let mascotSize: CGFloat = 44     // points
-private let walkSpeed: CGFloat = 110     // points / second
+```csharp
+private static readonly string CelebrateFile =
+    FindSound("Windows Chimes.wav", "Windows Ding.wav", "chimes.wav");
+private static readonly string NotifyFile =
+    FindSound("Windows Notify.wav", "Windows Balloon.wav", "notify.wav");
 ```
 
-### Window level
-
-If you want the mascot to render *behind* full-screen windows (so it
-disappears when you full-screen something), drop the level in
-`OverlayWindow.swift` from `popUpMenuWindow` to `floatingWindow`.
+System sounds live at `C:\Windows\Media\`. To use a custom `.wav`,
+pass its full path to `new System.Media.SoundPlayer(path)`.
 
 ---
 
 ## Troubleshooting
 
-### I don't see the mascot
+### I don't see the mascot (macOS)
 
 1. Confirm the app is running: `pgrep -fl Claudario`.
 2. Confirm the menu-bar icon is there (top-right corner).
-3. From the menu, click **Test: Walk + Jump**. If you don't see
-   anything, the overlay window is the problem (level / position).
-4. If the Dock is on the left or right, Claudario falls back to a
-   fixed 160 pt (2 × 80 pt) strip along the bottom — the mascot is
-   there, not next to the Dock.
+3. From the menu, click **Test: Walk + Jump**. If nothing happens, the
+   overlay window is the problem.
+4. If the Dock is on the left or right, Claudario falls back to a fixed
+   160 pt bottom strip.
 
-### Hooks don't fire when I run `claude`
+### I don't see the mascot (Windows)
+
+1. Confirm the process is running: `Get-Process Claudario -ErrorAction SilentlyContinue`
+2. Check the system tray — the icon may be in the overflow (`^`) section.
+3. Right-click the tray icon and click **Test: Walk + Jump**. If the
+   mascot doesn't appear, the overlay is the problem.
+4. The mascot renders just above the taskbar. If your taskbar is set to
+   auto-hide, the strip may be very thin — disable auto-hide and try again.
+5. Multiple monitors: the mascot pins to the primary monitor (the one
+   with the taskbar clock).
+
+### Hooks don't fire when I run `claude` (macOS)
 
 ```bash
 # 1. Is the bridge installed?
@@ -829,7 +968,6 @@ ls -l ~/.claudario/hook
 
 # 2. Are the entries in settings.json?
 grep -c claudario ~/.claude/settings.json
-# Should print 7 (one per registered event).
 
 # 3. Does the script work standalone?
 echo '{"hook_event_name":"Stop","session_id":"x"}' | ~/.claudario/hook
@@ -839,63 +977,117 @@ echo '{"hook_event_name":"Stop","session_id":"x"}' | ~/.claudario/hook
 lsof -nP -iTCP:47821 -sTCP:LISTEN
 ```
 
-If `~/.claude/settings.json` exists but doesn't contain Claudario
-entries, click **Install Claude Code Hooks** again. If that fails,
-the JSON may be malformed — check for trailing commas.
+### Hooks don't fire when I run `claude` (Windows)
 
-### `Permission denied` when `~/.claudario/hook` runs
+```powershell
+# 1. Is the bridge installed?
+Test-Path "$env:USERPROFILE\.claudario\hook.cmd"
 
-The installer sets mode `0755`. If you copied the file by hand:
-`chmod +x ~/.claudario/hook`.
+# 2. Are the entries in settings.json?
+(Select-String "claudario" "$env:USERPROFILE\.claude\settings.json").Count
+
+# 3. Does the script work standalone?
+echo '{"hook_event_name":"Stop","session_id":"x"}' |
+    cmd /c "$env:USERPROFILE\.claudario\hook.cmd"
+# Mascot should jump.
+
+# 4. Is the app listening on port 47821?
+netstat -ano | Select-String ":47821"
+```
+
+If `settings.json` exists but doesn't contain Claudario entries, click
+**Install Claude Code Hooks** again. If that fails, the JSON may be
+malformed — check for trailing commas.
 
 ### Port 47821 is already in use
 
-The server falls back to an ephemeral port and writes the new value
-to `~/.claudario/port`. The hook script reads that file, so this is
-transparent. If you want a fixed port, change `preferredPort` in
-`AppDelegate.applicationDidFinishLaunching`.
+The server falls back to an ephemeral port. On macOS the hook reads
+`~/.claudario/port` automatically. On Windows the batch hook
+hardcodes `47821`, so if you need to use a different port, edit
+`EventServer.cs` (`preferredPort`) and re-build.
 
-### "Launch at Login" toggle does nothing
+### "Launch at Login" toggle does nothing (macOS)
 
 `SMAppService.mainApp.register()` requires the app to be in
-`/Applications` (or another standard location) and properly signed.
-For an ad-hoc dev build in `build/`, register may fail silently.
-Move the `.app` to `/Applications` and try again, or just launch
-manually for now.
+`/Applications` or properly signed. For an ad-hoc dev build in
+`build/`, move the `.app` to `/Applications` and try again.
+
+### "Launch at Login" toggle does nothing (Windows)
+
+Registry writes to `HKCU\Run` require no special permissions, so this
+should always work. If it doesn't, check that `Environment.ProcessPath`
+returns the correct path to `Claudario.exe`.
+
+### Mascot is visible but click-to-control doesn't work (Windows)
+
+The mascot must be in `Idle` state (not `Walking`) for a click to
+enter controlled mode. If Claude Code is active, the mascot will be
+walking. Wait for Claude to finish, or use **Test: Walk + Jump** from
+the tray menu and click the mascot during the ~4 s walk phase.
 
 ---
 
 ## Uninstall
+
+### macOS
 
 1. Menu bar → **Uninstall Claude Code Hooks** (removes our entries
    from `~/.claude/settings.json`; your other hooks are untouched).
 2. Menu bar → **Quit**.
 3. (Optional cleanup) `rm -rf ~/.claudario build/Claudario.app`.
 
+### Windows
+
+1. Right-click tray icon → **Uninstall Claude Code Hooks** (removes
+   our entries from `%USERPROFILE%\.claude\settings.json`; your other
+   hooks are untouched).
+2. Right-click tray icon → **Quit**.
+3. Disable Launch at Login first if you had it enabled (tray menu →
+   **Launch at Login** to uncheck it).
+4. (Optional cleanup)
+   ```powershell
+   Remove-Item -Recurse "$env:USERPROFILE\.claudario"
+   Remove-Item -Path "HKCU:\Software\Claudario" -Recurse -ErrorAction SilentlyContinue
+   ```
+
 Backups of `settings.json` taken at install time remain at
-`~/.claude/settings.json.bak.<timestamp>` until you delete them.
+`settings.json.bak.<timestamp>` until you delete them.
 
 ---
 
 ## Limitations
+
+### macOS
 
 - **Main screen only** — multi-monitor support is on the to-do list.
   The window pins to `NSScreen.main`.
 - **Side-Dock fallback** — if your Dock is on the left or right,
   Claudario draws on a fixed 160 pt (2 × 80 pt fallback) bottom strip
   rather than next to the Dock.
-- **Procedural art** — the mascot is drawn with `SKShapeNode`s, not
-  sprite-sheet pixel art. Easy to replace; see
-  [Customization](#customization).
-- **No preferences UI** — speed, color, sounds, and window level are
-  hardcoded constants. PRs welcome.
-- **Interactive mode is idle-only** — by design, you can't take
-  keyboard control while Claude is working. Hook activity always
-  preempts. If you really want to drive the mascot during a turn,
-  toggle **Enabled** off + on from the menu bar to clear session
-  state.
 - **macOS 13+** because of `SMAppService`. Backporting to 12 would
   require a `LaunchAgent`-based login launcher.
+
+### Windows
+
+- **Primary monitor only** — the mascot pins to the taskbar of the
+  primary display.
+- **Port hardcoded in hook.cmd** — unlike the macOS bash hook which
+  reads the port from a file, `hook.cmd` always targets port `47821`.
+  If that port is taken, re-build with a different `preferredPort` in
+  `EventServer.cs`.
+- **Taskbar position** — tested with the taskbar at the bottom (default
+  Windows layout). Top/side taskbars are handled by `TaskbarGeometry`
+  but less thoroughly tested.
+
+### Both platforms
+
+- **Procedural art** — the mascot is drawn with vector paths, not
+  sprite-sheet pixel art. Easy to replace; see [Customization](#customization).
+- **No preferences UI** — speed, color, sounds, and window level are
+  keyboard-only or constants.
+- **Interactive mode is idle-only** — by design, you can't take
+  keyboard control while Claude is working. Hook activity always
+  preempts.
 
 ---
 
@@ -904,19 +1096,21 @@ Backups of `settings.json` taken at install time remain at
 Contributions are very welcome. A few ways to help:
 
 - **File an issue** — bug reports, behavior quirks, or feature
-  suggestions. Please include your macOS version, Dock position, and
-  the output of `pgrep -fl Claudario` if it's a "doesn't show up"
-  problem.
+  suggestions. Please include your OS version and the output of
+  `pgrep -fl Claudario` (macOS) or `Get-Process Claudario` (Windows)
+  if it's a "doesn't show up" problem.
 - **Send a pull request** — small, focused PRs are easiest to review.
   Good first targets:
-  - New mascot variants (see [Adding new mascot variants](#adding-new-mascot-variants)).
-  - New activity animations or tool→activity mappings in
-    `MascotActivity.swift`.
-  - Multi-monitor support (the [Limitations](#limitations) list
-    spells out the known gaps).
-  - A preferences UI (currently size/color/variant are keyboard-only).
+  - New mascot variants (add to both `MascotVariant.swift` and `MascotVariant.cs`).
+  - New activity animations or tool→activity mappings (both `MascotActivity.*`).
+  - Multi-monitor support (see [Limitations](#limitations)).
+  - A preferences UI (size/color/variant are keyboard-only on both platforms).
+  - Port discovery for `hook.cmd` (read `%USERPROFILE%\.claudario\port`
+    like the macOS bash hook does).
 
 ### Local development
+
+**macOS:**
 
 ```bash
 git clone https://github.com/kartikprabhu20/Claudario.git
@@ -925,11 +1119,16 @@ cd Claudario
 open build/Claudario.app
 ```
 
-`swift build` works as well if you don't need the `.app` bundle. The
-project has zero external dependencies, so first build only needs
-Xcode command-line tools.
+**Windows:**
 
-When you're iterating on the mascot, the menu's **Test: Walk + Jump**
+```powershell
+git clone https://github.com/kartikprabhu20/Claudario.git
+cd Claudario\windows
+.\build.ps1
+.\Claudario.Windows\bin\Release\net8.0-windows\Claudario.exe
+```
+
+When iterating on the mascot, the tray/menu-bar **Test: Walk + Jump**
 and **Test: Notify** items are the fastest way to exercise the
 animation paths without running a real Claude Code session.
 
@@ -944,5 +1143,5 @@ it does.
 ## License
 
 Claudario is released under the [MIT License](LICENSE) — you're free
-to use, modify, and redistribute it, including in commercial
-products. Attribution is appreciated but not required.
+to use, modify, and redistribute it, including in commercial products.
+Attribution is appreciated but not required.
