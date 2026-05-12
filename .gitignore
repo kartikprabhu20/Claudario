@@ -1,10 +1,10 @@
 # Swift Package Manager
-.build/
-.swiftpm/
-Package.resolved
+macos/.build/
+macos/.swiftpm/
+macos/Package.resolved
 
 # build.sh output
-build/
+macos/build/
 
 # Xcode
 *.xcodeproj/xcuserdata/

@@ -4,7 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build & run
 
+All macOS sources live in `macos/`. Run the build from that directory:
+
 ```bash
+cd macos
 ./build.sh                  # swift build -c release + assemble build/Claudario.app
 CONFIG=debug ./build.sh     # debug build (faster compile, slower runtime)
 swift build                 # raw SwiftPM build, no .app bundle (Sources only)
@@ -14,7 +17,7 @@ killall Claudario && open build/Claudario.app   # relaunch to pick up code chang
 
 There is **no test target**. `swift test` will fail. Verification is manual via the menu bar's `Test: Walk + Jump` / `Test: Notify` items, or by piping mock JSON to `~/.claudario/hook` (see README "Verifying the hook is wired up"). For UI behavior changes (mascot animations, gestures, overlay positioning) you must run the app and observe — type checking alone won't catch visual regressions.
 
-The repo has zero external dependencies. `Package.swift` declares only the `Claudario` executable target; `build.sh` does the swift build, then assembles `.app` by copying the binary, `Info.plist.template`, and `claudario-hook` into the bundle and ad-hoc codesigning it.
+The repo has zero external dependencies. `macos/Package.swift` declares only the `Claudario` executable target; `macos/build.sh` does the swift build, then assembles `.app` by copying the binary, `macos/Info.plist.template`, and `macos/claudario-hook` into the bundle and ad-hoc codesigning it. Build artifacts land in `macos/.build/` and `macos/build/`.
 
 ## Architecture
 

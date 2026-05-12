@@ -125,7 +125,7 @@ Claudario is a lightweight desktop mascot that brings the internal state of Clau
 
 ```bash
 git clone <this-repo> Claudario
-cd Claudario
+cd Claudario/macos
 ./build.sh
 open build/Claudario.app
 ```
@@ -798,21 +798,24 @@ from the headers and route the body to `EventRouter`.
 
 ```
 Claudario/
-├── Package.swift              # macOS: SwiftPM manifest (no dependencies)
-├── Info.plist.template        # macOS: Bundle plist (LSUIElement=true, etc.)
-├── build.sh                   # macOS: swift build → assemble .app bundle
-├── claudario-hook             # macOS: bash bridge (gets bundled into .app)
 ├── README.md
-├── Sources/Claudario/         # macOS Swift source
-│   ├── main.swift
-│   ├── AppDelegate.swift
-│   ├── Overlay/
-│   ├── Mascot/
-│   ├── Server/
-│   ├── Settings/
-│   ├── Audio/
-│   ├── MenuBar/
-│   └── Install/
+├── LICENSE
+├── src/                       # shared media (gifs, mp4s for the README)
+├── macos/                     # macOS Swift source
+│   ├── Package.swift          # SwiftPM manifest (no dependencies)
+│   ├── Info.plist.template    # Bundle plist (LSUIElement=true, etc.)
+│   ├── build.sh               # swift build → assemble .app bundle
+│   ├── claudario-hook         # bash bridge (gets bundled into .app)
+│   └── Sources/Claudario/
+│       ├── main.swift
+│       ├── AppDelegate.swift
+│       ├── Overlay/
+│       ├── Mascot/
+│       ├── Server/
+│       ├── Settings/
+│       ├── Audio/
+│       ├── MenuBar/
+│       └── Install/
 └── windows/                   # Windows C# source
     ├── build.ps1              # dotnet build → Claudario.exe
     ├── claudario-hook.cmd     # batch bridge (copied to output dir)
@@ -846,8 +849,8 @@ Claudario/
 **macOS:**
 
 ```
-.build/release/Claudario        # raw executable (SwiftPM)
-build/Claudario.app/            # assembled .app bundle (build.sh output)
+macos/.build/release/Claudario   # raw executable (SwiftPM)
+macos/build/Claudario.app/       # assembled .app bundle (build.sh output)
     Contents/
     ├── Info.plist
     ├── MacOS/Claudario
@@ -1034,7 +1037,7 @@ the tray menu and click the mascot during the ~4 s walk phase.
 1. Menu bar → **Uninstall Claude Code Hooks** (removes our entries
    from `~/.claude/settings.json`; your other hooks are untouched).
 2. Menu bar → **Quit**.
-3. (Optional cleanup) `rm -rf ~/.claudario build/Claudario.app`.
+3. (Optional cleanup) `rm -rf ~/.claudario macos/build/Claudario.app`.
 
 ### Windows
 
@@ -1114,7 +1117,7 @@ Contributions are very welcome. A few ways to help:
 
 ```bash
 git clone https://github.com/kartikprabhu20/Claudario.git
-cd Claudario
+cd Claudario/macos
 ./build.sh
 open build/Claudario.app
 ```
