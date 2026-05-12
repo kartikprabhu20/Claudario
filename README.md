@@ -10,11 +10,6 @@
 **Claudario is open source under the [MIT License](LICENSE).** Issues
 and pull requests are welcome — see [Contributing](#contributing).
 
-<video src="https://github.com/user-attachments/assets/d0f9ec77-b258-426c-a48c-d87bc71d1478" width="100%" autoplay loop muted playsinline>
-</video>
-<video src="https://github.com/user-attachments/assets/7e2b1b29-7870-4d52-8aaa-651d777d2762" width="100%" autoplay loop muted playsinline>
-</video>
-
 Claudario is a lightweight desktop mascot that brings the internal state of Claude Code to life. Instead of checking your terminal for progress, just look at your Dock (macOS) or taskbar (Windows). Claudario walks, jumps, and reacts in real-time to your development workflow, chirping with a chime when a task is done, and bouncing playfully when Claude needs your input. It's a bit of personality for your workspace that keeps you informed without the context-switching.
 
 ---
@@ -32,6 +27,18 @@ Claudario is a lightweight desktop mascot that brings the internal state of Clau
     Cycle through them on the fly with <kbd>v</kbd> in interactive mode — your pick persists across launches.
   </sub>
 </p>
+
+---
+
+<video src="https://github.com/user-attachments/assets/d0f9ec77-b258-426c-a48c-d87bc71d1478" width="100%" autoplay loop muted playsinline>
+</video>
+<video src="https://github.com/user-attachments/assets/7e2b1b29-7870-4d52-8aaa-651d777d2762" width="100%" autoplay loop muted playsinline>
+</video>
+
+<video src="https://github.com/user-attachments/assets/3e5141e0-6c74-4254-a930-7cc7068ac988" width="100%" autoplay loop muted playsinline>
+</video>
+<video src="https://github.com/user-attachments/assets/e7eb3958-10d8-470d-bd1b-ac67f2ce04b0" width="100%" autoplay loop muted playsinline>
+</video>
 
 ---
 
