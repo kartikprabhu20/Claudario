@@ -43,3 +43,15 @@ Icon
 
 # Project-local Claude settings (keep out of source control)
 .claude/settings.local.json
+
+# Windows port — build artifacts and IDE state (nothing in windows/ should be
+# committed except source, project files, scripts, and the porting plan)
+windows/**/.vs/
+windows/**/bin/
+windows/**/obj/
+windows/**/*.user
+windows/**/*.suo
+windows/**/*.userosscache
+windows/**/*.sln.docstates
+windows/**/*.nupkg
+windows/**/packages/
