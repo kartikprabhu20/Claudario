@@ -75,6 +75,7 @@ public partial class OverlayWindow : Window
         _settings = settings;
         _scene    = new MascotScene();
 
+        _scene.SetSettings(settings);
         _scene.SetColor(_settings.ColorIndex);
         _scene.SetVariant(_settings.VariantIndex);
         _scene.SetSize(_settings.Size);
@@ -106,7 +107,13 @@ public partial class OverlayWindow : Window
 
     private void OnRendering(object? sender, EventArgs e)
     {
-        _scene.Update();
+        // Convert cursor screen pixels → canvas pixels for petting detection
+        GetCursorPos(out var pt);
+        double scale = GetDpiScale();
+        double cursorCanvasX = pt.X - Left * scale;
+        double cursorCanvasY = pt.Y - Top  * scale;
+
+        _scene.Update(cursorCanvasX, cursorCanvasY);
         UpdateClickThrough();
         SkElement.InvalidateVisual();
     }
@@ -132,7 +139,9 @@ public partial class OverlayWindow : Window
 
     private void OnKeyDown(object sender, KeyEventArgs e)
     {
-        if (_scene.State == MascotState.Controlled)
+        if (_scene.State == MascotState.Playing)
+            HandlePlayingKey(e.Key, isRepeat: e.IsRepeat);
+        else if (_scene.State == MascotState.Controlled)
             HandleControlledKey(e.Key, isRepeat: e.IsRepeat);
     }
 
@@ -184,10 +193,35 @@ public partial class OverlayWindow : Window
                 _scene.SetSize(_settings.NudgeSize(+1));
                 break;
 
+            case Key.G when !isRepeat:
+                if (_scene.Activity == MascotActivity.Idle)
+                    _scene.SetState(MascotState.Playing);
+                break;
+
             default:
                 if (!isRepeat)
                     foreach (var (k, act) in ActivityKeys)
                         if (key == k) { _scene.SetActivity(act); return; }
+                break;
+        }
+    }
+
+    private void HandlePlayingKey(Key key, bool isRepeat)
+    {
+        switch (key)
+        {
+            case Key.Up    when !isRepeat:
+            case Key.Space when !isRepeat:
+                _scene.TryJump();
+                break;
+            case Key.R when !isRepeat:
+                _scene.TryRestart();
+                break;
+            case Key.Escape:
+                _scene.ExitGame();
+                // Restore NOACTIVATE — window had focus during the game
+                int ex = GetWindowLong(_hwnd, GWL_EXSTYLE);
+                SetWindowLong(_hwnd, GWL_EXSTYLE, ex | WS_EX_NOACTIVATE);
                 break;
         }
     }
