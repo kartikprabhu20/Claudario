@@ -18,12 +18,21 @@ final class MascotSettings {
         self.defaults = defaults
     }
 
+    /// Fired after `colorIndex` is mutated. Receives the clamped new value.
+    var onColorChanged: ((Int) -> Void)?
+    /// Fired after `variantIndex` is mutated. Receives the clamped new value.
+    var onVariantChanged: ((Int) -> Void)?
+
     var colorIndex: Int {
         get {
             let raw = defaults.object(forKey: Key.colorIndex) as? Int ?? Self.defaultColorIndex
             return clampColorIndex(raw)
         }
-        set { defaults.set(clampColorIndex(newValue), forKey: Key.colorIndex) }
+        set {
+            let clamped = clampColorIndex(newValue)
+            defaults.set(clamped, forKey: Key.colorIndex)
+            onColorChanged?(clamped)
+        }
     }
 
     var size: Int {
@@ -39,7 +48,11 @@ final class MascotSettings {
             let raw = defaults.object(forKey: Key.variantIndex) as? Int ?? Self.defaultVariantIndex
             return clampVariantIndex(raw)
         }
-        set { defaults.set(clampVariantIndex(newValue), forKey: Key.variantIndex) }
+        set {
+            let clamped = clampVariantIndex(newValue)
+            defaults.set(clamped, forKey: Key.variantIndex)
+            onVariantChanged?(clamped)
+        }
     }
 
     var dinoHighScore: Int {

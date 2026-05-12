@@ -54,7 +54,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSLog("Claudario: server listening on 127.0.0.1:\(port)")
         }
 
-        statusItem = StatusItemController(appDelegate: self)
+        statusItem = StatusItemController(appDelegate: self, settings: settings)
+        settings.onVariantChanged = { [weak self] _ in self?.statusItem.refreshIcon() }
+        settings.onColorChanged   = { [weak self] _ in self?.statusItem.refreshIcon() }
     }
 
     private func applyEnabled() {

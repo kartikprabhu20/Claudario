@@ -4,9 +4,11 @@ import ServiceManagement
 final class StatusItemController: NSObject, NSMenuDelegate {
     private let statusItem: NSStatusItem
     private weak var appDelegate: AppDelegate?
+    private let settings: MascotSettings
 
-    init(appDelegate: AppDelegate) {
+    init(appDelegate: AppDelegate, settings: MascotSettings) {
         self.appDelegate = appDelegate
+        self.settings = settings
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
         configure()
@@ -14,13 +16,27 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     private func configure() {
         if let button = statusItem.button {
-            button.title = "🟧"
+            button.image = Self.makeIcon(settings: settings)
+            button.imagePosition = .imageOnly
+            button.title = ""
             button.toolTip = "Claudario"
         }
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu
         rebuildMenu(menu)
+    }
+
+    /// Re-renders the menu-bar icon from the current variant/color in
+    /// settings. Called by AppDelegate via settings change callbacks.
+    func refreshIcon() {
+        statusItem.button?.image = Self.makeIcon(settings: settings)
+    }
+
+    private static func makeIcon(settings: MascotSettings) -> NSImage {
+        let variant = MascotVariant(rawValue: settings.variantIndex) ?? .classic
+        let color = MascotPalette.colors[settings.colorIndex]
+        return MascotIconRenderer.render(variant: variant, color: color, pointSize: 18)
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
