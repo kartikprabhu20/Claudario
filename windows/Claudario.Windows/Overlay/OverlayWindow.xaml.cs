@@ -21,9 +21,9 @@ public partial class OverlayWindow : Window
     private const int WH_MOUSE_LL       = 14;
     private const int WM_LBUTTONDOWN    = 0x0201;
 
-    [DllImport("user32.dll")] static extern int  GetWindowLong(IntPtr h, int n);
-    [DllImport("user32.dll")] static extern int  SetWindowLong(IntPtr h, int n, int v);
-    [DllImport("user32.dll")] static extern bool GetCursorPos(out POINT pt);
+    [DllImport("user32.dll")] static extern int    GetWindowLong(IntPtr h, int n);
+    [DllImport("user32.dll")] static extern int    SetWindowLong(IntPtr h, int n, int v);
+    [DllImport("user32.dll")] static extern bool   GetCursorPos(out POINT pt);
     [DllImport("user32.dll")] static extern IntPtr SetWindowsHookEx(int id, LowLevelMouseProc fn, IntPtr mod, uint tid);
     [DllImport("user32.dll")] static extern bool   UnhookWindowsHookEx(IntPtr hk);
     [DllImport("user32.dll")] static extern IntPtr CallNextHookEx(IntPtr hk, int code, IntPtr w, IntPtr l);
@@ -43,10 +43,12 @@ public partial class OverlayWindow : Window
     private bool _leftHeld  = false;
     private bool _rightHeld = false;
 
-    // Static so GC never collects the delegate while the hook is live
+    // Static so GC never collects the delegate while the hook is live.
+    // The hook is installed for the lifetime of the window (not just Controlled mode)
+    // so that click-on-mascot is intercepted before Windows routes it — this avoids
+    // the per-frame WS_EX_TRANSPARENT race condition.
     private static LowLevelMouseProc? _hookProc;
     private static IntPtr             _hookHandle = IntPtr.Zero;
-    // Weak ref back to the active instance so the static callback can reach it
     private static WeakReference<OverlayWindow>? _hookOwner;
 
     public MascotScene Scene => _scene;
@@ -73,13 +75,13 @@ public partial class OverlayWindow : Window
         _settings = settings;
         _scene    = new MascotScene();
 
-        // Apply persisted settings
         _scene.SetColor(_settings.ColorIndex);
         _scene.SetVariant(_settings.VariantIndex);
         _scene.SetSize(_settings.Size);
 
         InitializeComponent();
-        Loaded += OnLoaded;
+        Loaded  += OnLoaded;
+        Closing += (_, _) => RemoveMouseHook();
         CompositionTarget.Rendering += OnRendering;
     }
 
@@ -91,6 +93,7 @@ public partial class OverlayWindow : Window
         int ex = GetWindowLong(_hwnd, GWL_EXSTYLE);
         SetWindowLong(_hwnd, GWL_EXSTYLE, ex | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE);
         PositionToTaskbar();
+        InstallMouseHook(); // permanent — handles both enter and exit of Controlled mode
     }
 
     private void PositionToTaskbar()
@@ -114,23 +117,15 @@ public partial class OverlayWindow : Window
 
         bool capture = _scene.State switch
         {
-            MascotState.Playing    => true,  // game captures whole strip
-            MascotState.Controlled => true,  // keep capturing after click
+            MascotState.Playing    => true,
+            MascotState.Controlled => true,
             MascotState.Walking    => false,
-            _  => MascotScreenRect().Contains(GetCursorScreenPos()),
+            _ => MascotScreenRect().Contains(GetCursorScreenPos()),
         };
 
         int ex      = GetWindowLong(_hwnd, GWL_EXSTYLE);
         int desired = capture ? (ex & ~WS_EX_TRANSPARENT) : (ex | WS_EX_TRANSPARENT);
         if (ex != desired) SetWindowLong(_hwnd, GWL_EXSTYLE, desired);
-    }
-
-    // ── Mouse click on mascot ─────────────────────────────────────────────────
-
-    private void OnMouseDown(object sender, MouseButtonEventArgs e)
-    {
-        if (_scene.State == MascotState.Idle)
-            EnterControlled();
     }
 
     // ── Keyboard ──────────────────────────────────────────────────────────────
@@ -212,6 +207,8 @@ public partial class OverlayWindow : Window
 
     private void EnterControlled()
     {
+        if (_scene.State == MascotState.Controlled) return;
+
         // Remove NOACTIVATE so the window can receive keyboard focus
         int ex = GetWindowLong(_hwnd, GWL_EXSTYLE);
         SetWindowLong(_hwnd, GWL_EXSTYLE, ex & ~WS_EX_NOACTIVATE);
@@ -220,7 +217,7 @@ public partial class OverlayWindow : Window
         Focus();
 
         _scene.SetState(MascotState.Controlled);
-        InstallMouseHook();
+        // Hook is already installed at startup — no need to install here
     }
 
     private void ReleaseControl()
@@ -234,20 +231,23 @@ public partial class OverlayWindow : Window
     {
         _leftHeld = _rightHeld = false;
         _scene.SetUserMove(0);
-        RemoveMouseHook();
+        // Hook stays installed — only removed when window closes
 
         // Restore NOACTIVATE
         int ex = GetWindowLong(_hwnd, GWL_EXSTYLE);
         SetWindowLong(_hwnd, GWL_EXSTYLE, ex | WS_EX_NOACTIVATE);
     }
 
-    // ── Low-level mouse hook (outside-click → release control) ────────────────
+    // ── Low-level mouse hook ──────────────────────────────────────────────────
+    // Installed for the full window lifetime. Handles two cases:
+    //   Idle + click on mascot → EnterControlled (click consumed so background is unaffected)
+    //   Controlled + click outside mascot → ReleaseControl
 
     private void InstallMouseHook()
     {
         if (_hookHandle != IntPtr.Zero) return;
-        _hookOwner = new WeakReference<OverlayWindow>(this);
-        _hookProc  = GlobalMouseCallback;
+        _hookOwner  = new WeakReference<OverlayWindow>(this);
+        _hookProc   = GlobalMouseCallback;
         _hookHandle = SetWindowsHookEx(WH_MOUSE_LL, _hookProc, GetModuleHandle(null), 0);
     }
 
@@ -267,7 +267,17 @@ public partial class OverlayWindow : Window
             && _hookOwner.TryGetTarget(out var owner))
         {
             var s = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
-            if (!owner.MascotScreenRect().Contains(s.X, s.Y))
+            bool overMascot = owner.MascotScreenRect().Contains(s.X, s.Y);
+
+            if (overMascot && owner._scene.State == MascotState.Idle)
+            {
+                owner.Dispatcher.BeginInvoke(owner.EnterControlled);
+                // Return non-zero without calling next hook to consume the click,
+                // preventing the background window from also receiving it.
+                return new IntPtr(1);
+            }
+
+            if (!overMascot && owner._scene.State == MascotState.Controlled)
                 owner.Dispatcher.BeginInvoke(owner.ReleaseControl);
         }
         return CallNextHookEx(_hookHandle, code, wParam, lParam);
@@ -281,11 +291,13 @@ public partial class OverlayWindow : Window
         var (left, _, right, top_s) = _scene.MascotBounds();
         double s = _scene.MascotSize;
 
-        double sl = (Left + left)          * scale;
-        double st = (Top  + Height - top_s) * scale;
-        double sw = (right - left)         * scale;
-        double sh = s                      * scale;
-        return new System.Drawing.Rectangle((int)sl, (int)st, (int)(sw+1), (int)(sh+1));
+        // Window.Left/Top/Height are WPF DIPs; MascotBounds values are canvas physical pixels.
+        // Multiply only the DIP values by scale; canvas values are already in physical pixels.
+        double sl = Left   * scale + left;
+        double st = (Top + Height) * scale - top_s;
+        double sw = right - left;
+        double sh = s;
+        return new System.Drawing.Rectangle((int)sl, (int)st, (int)(sw + 1), (int)(sh + 1));
     }
 
     private System.Drawing.Point GetCursorScreenPos()
