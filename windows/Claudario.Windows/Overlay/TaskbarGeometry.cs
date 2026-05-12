@@ -64,7 +64,7 @@ public static class TaskbarGeometry
             stripH = taskbarH * HeightMultiplier;
             stripW = screenW;
             stripX = 0;
-            stripY = screenH - stripH;
+            stripY = top - stripH; // bottom of strip = top of taskbar; never overlaps taskbar
         }
         else if (top <= 2 && bottom < screenH - 2 && left <= 2 && right < screenW - 2)
         {
@@ -74,7 +74,7 @@ public static class TaskbarGeometry
             stripH = taskbarH * HeightMultiplier;
             stripW = screenW;
             stripX = 0;
-            stripY = 0;
+            stripY = bottom; // top of strip = bottom of taskbar
         }
         else if (left <= 2 && right < screenW / 2)
         {

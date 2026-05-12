@@ -26,10 +26,11 @@ public class MascotScene
     private MascotVariant Variant =>
         (MascotVariant)Math.Clamp(_variantIndex, 0, 6);
 
-    // ── Walk ──────────────────────────────────────────────────────────────────
-    private double _walkDir     = 1;
-    private bool   _facingRight = true;
+    // ── Walk / controlled movement ────────────────────────────────────────────
+    private double _walkDir      = 1;
+    private bool   _facingRight  = true;
     private double _sceneW;
+    private double _userMoveDir  = 0;   // -1/0/+1, set by keyboard in Controlled state
 
     // ── Feet ──────────────────────────────────────────────────────────────────
     private double _footTimer  = 0;
@@ -99,10 +100,31 @@ public class MascotScene
     {
         if (State == state) return;
         State = state;
-        _feetActive = false;
-        _footTimer  = 0;
-        if (state == MascotState.Walking) BeginNextLeg();
-        if (state == MascotState.Idle)    ClearWalkVisuals();
+        _feetActive  = false;
+        _footTimer   = 0;
+        _userMoveDir = 0;
+        if (state == MascotState.Walking)    BeginNextLeg();
+        if (state == MascotState.Idle)       ClearWalkVisuals();
+        if (state == MascotState.Controlled) ClearWalkVisuals();
+    }
+
+    // Called by OverlayWindow on arrow-key down/up while in Controlled state.
+    public void SetUserMove(double direction)
+    {
+        if (State != MascotState.Controlled) return;
+        _userMoveDir = direction > 0 ? 1 : direction < 0 ? -1 : 0;
+        _feetActive  = _userMoveDir != 0;
+        if (_userMoveDir != 0) _facingRight = _userMoveDir > 0;
+        if (_userMoveDir == 0) { _footTimer = 0; _leftFootUp = false; }
+    }
+
+    // User-initiated jump in Controlled state. Returns false if already airborne.
+    public bool UserJump()
+    {
+        if (State != MascotState.Controlled) return false;
+        if (_jumpHalf < _jumpTotalHalfs)     return false; // already in a jump
+        StartJump(36, bounces: 1);
+        return true;
     }
 
     public void SetActivity(MascotActivity activity)
@@ -153,22 +175,28 @@ public class MascotScene
 
     private void TickWalk(double dt)
     {
-        if (State != MascotState.Walking || _sceneW <= 0) return;
-        double mult  = Activity.SpeedMultiplier();
-        double speed = BaseWalk * (mult == 0 ? 1 : mult);
         double margin = MascotSize / 2 + 8;
         double left   = margin;
         double right  = Math.Max(margin + 1, _sceneW - margin);
 
-        MascotX += speed * dt * _walkDir;
+        if (State == MascotState.Walking && _sceneW > 0)
+        {
+            double mult  = Activity.SpeedMultiplier();
+            double speed = BaseWalk * (mult == 0 ? 1 : mult);
+            MascotX += speed * dt * _walkDir;
 
-        if (_walkDir > 0 && MascotX >= right)
-        {
-            MascotX = right; _walkDir = -1; _facingRight = false; BeginNextLeg();
+            if (_walkDir > 0 && MascotX >= right)
+            {
+                MascotX = right; _walkDir = -1; _facingRight = false; BeginNextLeg();
+            }
+            else if (_walkDir < 0 && MascotX <= left)
+            {
+                MascotX = left;  _walkDir = 1;  _facingRight = true;  BeginNextLeg();
+            }
         }
-        else if (_walkDir < 0 && MascotX <= left)
+        else if (State == MascotState.Controlled && _userMoveDir != 0 && _sceneW > 0)
         {
-            MascotX = left;  _walkDir = 1;  _facingRight = true;  BeginNextLeg();
+            MascotX = Math.Clamp(MascotX + BaseWalk * dt * _userMoveDir, left, right);
         }
     }
 
@@ -504,11 +532,14 @@ public class MascotScene
         c.DrawRoundRect(r, fh/2, fh/2, stroke);
     }
 
+    private static readonly SKTypeface EmojiTypeface =
+        SKTypeface.FromFamilyName("Segoe UI Emoji") ?? SKTypeface.Default;
+
     private static void DrawProp(SKCanvas canvas, string prop,
         float cx, float bodyTopY, float s)
     {
         float y = bodyTopY - s * 0.15f;
-        using var font  = new SKFont(SKTypeface.Default, s * 0.5f);
+        using var font  = new SKFont(EmojiTypeface, s * 0.5f);
         using var paint = new SKPaint { IsAntialias = true, TextAlign = SKTextAlign.Center };
         canvas.DrawText(prop, cx, y, font, paint);
     }
