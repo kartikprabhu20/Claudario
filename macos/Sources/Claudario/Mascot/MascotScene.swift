@@ -380,14 +380,18 @@ final class MascotScene: SKScene {
         up.timingMode = .easeOut
         let down = SKAction.moveBy(x: 0, y: -36, duration: 0.18)
         down.timingMode = .easeIn
-        mascotNode.run(SKAction.sequence([up, down]), withKey: jumpActionKey)
+        let gap = SKAction.wait(forDuration: 0.64)
+        let cycle = SKAction.sequence([up, down, gap])
+        mascotNode.run(SKAction.repeat(cycle, count: 3), withKey: jumpActionKey)
     }
 
     func notify() {
         if state == .playing { return }
         let up = SKAction.moveBy(x: 0, y: 14, duration: 0.1)
         let down = SKAction.moveBy(x: 0, y: -14, duration: 0.1)
-        mascotNode.run(SKAction.sequence([up, down, up, down]))
+        let gap = SKAction.wait(forDuration: 0.8)
+        let cycle = SKAction.sequence([up, down, gap])
+        mascotNode.run(SKAction.repeat(cycle, count: 3), withKey: jumpActionKey)
     }
 
     // MARK: - Activity / customization

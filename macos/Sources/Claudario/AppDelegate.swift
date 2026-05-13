@@ -37,11 +37,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onIdle:       { [weak self] in self?.overlay.scene.setState(.idle) },
             onCelebrate:  { [weak self] in
                 self?.overlay.scene.celebrate()
-                self?.sound.play(.coin)
+                self?.playRepeated(.coin, count: 3, interval: 1.0)
             },
             onNotify:     { [weak self] in
                 self?.overlay.scene.notify()
-                self?.sound.play(.notify)
+                self?.playRepeated(.notify, count: 3, interval: 1.0)
             },
             onActivity:   { [weak self] activity in
                 self?.overlay.scene.setActivity(activity)
@@ -57,6 +57,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = StatusItemController(appDelegate: self, settings: settings)
         settings.onVariantChanged = { [weak self] _ in self?.statusItem.refreshIcon() }
         settings.onColorChanged   = { [weak self] _ in self?.statusItem.refreshIcon() }
+    }
+
+    private func playRepeated(_ s: AppSound, count: Int, interval: TimeInterval) {
+        for i in 0..<count {
+            DispatchQueue.main.asyncAfter(deadline: .now() + interval * Double(i)) { [weak self] in
+                self?.sound.play(s)
+            }
+        }
     }
 
     private func applyEnabled() {
