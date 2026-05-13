@@ -70,6 +70,12 @@ Claudario is a lightweight desktop mascot that brings the internal state of Clau
 ## What you get
 
 - Menu-bar app on macOS (`LSUIElement = true`), system-tray app on Windows — no Dock or taskbar button in either case.
+- **Status icon mirrors your mascot.** The macOS menu-bar icon and the
+  Windows system-tray icon are both rendered from the *currently
+  selected mascot variant in the current palette color* — so a red
+  Panda on the Dock shows as a tiny red Panda in the menu bar / tray.
+  Cycle colors with `c` or variants with `v` and the status icon
+  refreshes immediately (no relaunch needed).
 - Transparent, click-through overlay window pinned to the Dock area (macOS) or taskbar strip (Windows). Strip height is 2× the Dock/taskbar height to give the mascot headroom for jumps and tall activity props.
 - Procedurally-drawn mascot:
   - **Idle** when no Claude session is active — blinks every few
@@ -139,8 +145,10 @@ open build/Claudario.app
 
 You should see:
 
-1. A small orange square (`🟧`) appear in the menu bar (top right of
-   your screen).
+1. A tiny version of your mascot appear in the **menu bar** (top right
+   of your screen) — same silhouette and same color as the on-screen
+   mascot. On a fresh install that's the Classic shape in orange; once
+   you cycle with `c` / `v` the menu-bar icon follows along.
 2. A small mascot at the bottom of your main display, sitting on top
    of (or in the area of) the Dock.
 
@@ -173,9 +181,13 @@ cd Claudario\windows
 
 You should see:
 
-1. A small orange circle appear in the **system tray** (bottom-right
-   notification area). If it's hidden, click the `^` arrow to show
-   overflow icons.
+1. A tiny version of your mascot appear in the **system tray**
+   (bottom-right notification area) — same silhouette and same color
+   as the on-screen mascot, rendered at 32×32 so it stays crisp on
+   high-DPI displays. If it's hidden, click the `^` arrow to show
+   overflow icons (or drag it onto the visible tray). On a fresh
+   install that's the Classic shape in orange; cycling with `c` / `v`
+   updates the tray icon immediately.
 2. A small mascot at the bottom of your main display, sitting just
    above the taskbar.
 
@@ -353,8 +365,8 @@ with the Dock / taskbar as normal.
 | **1 2 3 4 5 6 7 8 9 0**| Preview each activity (1=idle, 2=thinking, 3=reading, 4=coding, 5=running, 6=planning, 7=browsing, 8=deep-thinking, 9=compacting, 0=dancing) |
 | **`,`**                | Shrink mascot one step (24 → 88 pt range, 8 pt steps)        |
 | **`.`**                | Grow mascot one step                                         |
-| **c**                  | Cycle to next color in the 10-color palette                  |
-| **v**                  | Cycle to next mascot variant (Classic, Egg, Cat, Dog, Owl, Panda, Robot) |
+| **c**                  | Cycle to next color in the 10-color palette (menu-bar / tray icon updates to match) |
+| **v**                  | Cycle to next mascot variant — Classic, Egg, Cat, Dog, Owl, Panda, Robot (menu-bar / tray icon updates to match) |
 | **g**                  | Start the dino-runner mini-game (only while activity is `idle`) |
 
 Size, color, and variant choices all persist across app launches
@@ -607,14 +619,15 @@ a new terminal and type `claude`.
 | `Server/EventRouter.swift`               | Per-`session_id` state machine; tracks walking + current activity; emits callbacks.  |
 | `Settings/MascotSettings.swift`          | `UserDefaults` wrapper for color index + size, with cycle/nudge helpers.             |
 | `Audio/SoundPlayer.swift`                | One-line wrapper around `NSSound(named:)`.                                           |
-| `MenuBar/StatusItemController.swift`     | Menu-bar `NSStatusItem`; toggles, install/uninstall, tests, **Show Controls…**.      |
+| `MenuBar/StatusItemController.swift`     | Menu-bar `NSStatusItem`; toggles, install/uninstall, tests, **Show Controls…**. Owns `refreshIcon()` which is invoked whenever variant/color settings change. |
+| `MenuBar/MascotIconRenderer.swift`       | Renders an `NSImage` of the current mascot (offscreen `SKView` snapshot of body + decorations) at 18 pt × 2× scale for the menu-bar status item. |
 | `Install/HookInstaller.swift`            | JSON merge into `~/.claude/settings.json`, with backup and uninstall.                |
 
 **Windows (C# / .NET 8):**
 
 | Source file                              | Job                                                                                  |
 | ---------------------------------------- | ------------------------------------------------------------------------------------ |
-| `App.xaml.cs`                            | WPF entry point; creates overlay, server, router; wires callbacks; owns NotifyIcon tray menu. |
+| `App.xaml.cs`                            | WPF entry point; creates overlay, server, router; wires callbacks; owns NotifyIcon tray menu. `CreateTrayIcon` paints the current `MascotVariant.BodyPath` + decorations (panda ears, robot antenna bulb) in the current palette color into a 32×32 SkiaSharp bitmap and wraps it as a PNG-in-ICO so Win11 keeps the 32-bit alpha. `UpdateTrayIcon` runs on every `MascotSettings.AppearanceChanged` (color/variant cycle) so the tray icon stays in sync. |
 | `Overlay/OverlayWindow.xaml.cs`          | Transparent topmost WPF window; `WS_EX_TRANSPARENT` click-through; permanent `WH_MOUSE_LL` hook for click-to-control; keyboard routing. |
 | `Overlay/TaskbarGeometry.cs`             | `SHAppBarMessage` → taskbar rect; strip height = 2× taskbar height.                 |
 | `Mascot/MascotState.cs`                  | `enum MascotState { Idle, Walking, Controlled, Playing }`.                           |

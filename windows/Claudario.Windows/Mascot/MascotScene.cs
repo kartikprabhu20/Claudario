@@ -156,6 +156,10 @@ public class MascotScene
         _actPupilX    = 0;
         _danceXOff    = 0;
         _danceYOff    = 0;
+
+        // SpeedMultiplier varies by activity, so feet-animation gating in
+        // BeginNextLeg must be re-evaluated when activity changes mid-walk.
+        if (State == MascotState.Walking) BeginNextLeg();
     }
 
     public void SetUserMove(double direction)
