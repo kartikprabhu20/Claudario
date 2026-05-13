@@ -2,6 +2,7 @@ using System.Text;
 using System.Windows;
 using Application = System.Windows.Application;
 using Microsoft.Win32;
+using SkiaSharp;
 using Claudario.Windows.Audio;
 using Claudario.Windows.Install;
 using Claudario.Windows.Mascot;
@@ -18,14 +19,16 @@ public partial class App : Application
     private OverlayWindow?       _overlay;
     private EventServer?         _server;
     private EventRouter?         _router;
+    private MascotSettings?      _settings;
     private bool _enabled = true;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
-        var settings = new MascotSettings();
-        _overlay = new OverlayWindow(settings);
+        _settings = new MascotSettings();
+        _settings.AppearanceChanged += UpdateTrayIcon;
+        _overlay = new OverlayWindow(_settings);
         _overlay.Show();
 
         StartServer();
@@ -84,11 +87,19 @@ public partial class App : Application
 
         _tray = new WinForms.NotifyIcon
         {
-            Icon            = CreateTrayIcon(),
-            Text            = "Claudario",
-            Visible         = true,
+            Icon             = CreateTrayIcon(_settings!),
+            Text             = "Claudario",
+            Visible          = true,
             ContextMenuStrip = menu,
         };
+    }
+
+    private void UpdateTrayIcon()
+    {
+        if (_tray == null || _settings == null) return;
+        var old = _tray.Icon;
+        _tray.Icon = CreateTrayIcon(_settings);
+        old?.Dispose();
     }
 
     private void FillTrayMenu(WinForms.ContextMenuStrip menu)
@@ -232,27 +243,115 @@ public partial class App : Application
     }
 
     // ── Tray icon bitmap ──────────────────────────────────────────────────────
+    // Renders the currently-selected mascot silhouette (body path + variant extras)
+    // in the current palette color at 32×32 so high-DPI trays look sharp.
 
-    private static System.Drawing.Icon CreateTrayIcon()
+    private static System.Drawing.Icon CreateTrayIcon(MascotSettings settings)
     {
-        const int size = 16;
-        using var bmp = new System.Drawing.Bitmap(size, size,
-            System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        using var g = System.Drawing.Graphics.FromImage(bmp);
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-        g.Clear(System.Drawing.Color.Transparent);
+        const int size = 32;
+        var variant = (MascotVariant)settings.VariantIndex;
+        var palette = MascotPalette.Colors[settings.ColorIndex];
 
-        using var brush = new System.Drawing.SolidBrush(
-            System.Drawing.Color.FromArgb(255, 230, 120, 50));
-        g.FillEllipse(brush, 1, 1, size - 2, size - 2);
+        using var skiaBmp    = new SKBitmap(size, size, SKColorType.Bgra8888, SKAlphaType.Premul);
+        using var skiaCanvas = new SKCanvas(skiaBmp);
+        skiaCanvas.Clear(SKColors.Transparent);
 
-        using var eyeBrush   = new System.Drawing.SolidBrush(System.Drawing.Color.White);
-        using var pupilBrush = new System.Drawing.SolidBrush(System.Drawing.Color.Black);
-        g.FillEllipse(eyeBrush,   4, 5, 3, 3);
-        g.FillEllipse(eyeBrush,   9, 5, 3, 3);
-        g.FillEllipse(pupilBrush, 5, 6, 2, 2);
-        g.FillEllipse(pupilBrush, 10, 6, 2, 2);
+        // Bounding box extents in mascot-local units (multiples of s).
+        // BodyPath coordinates: X ∈ [−widthFactor/2·s, +widthFactor/2·s], Y ∈ [0, heightFactor·s].
+        float widthUnits = variant switch
+        {
+            MascotVariant.Dog => 1.52f,   // floppy ears reach ±0.74 s
+            MascotVariant.Owl => 1.14f,   // body widens to ±0.55 s
+            _                 => 1.04f,
+        };
+        float heightUnits = variant switch
+        {
+            MascotVariant.Cat   => 1.10f,  // ear tips at 1.05 s
+            MascotVariant.Owl   => 1.10f,  // tuft tips at 1.05 s
+            MascotVariant.Panda => 1.08f,  // ear tops at ~1.03 s (0.85 s centre + 0.18 s radius)
+            MascotVariant.Robot => 1.18f,  // antenna bulb top at ~1.14 s (1.06 + 0.08)
+            _                   => 1.04f,
+        };
 
-        return System.Drawing.Icon.FromHandle(bmp.GetHicon());
+        float pad   = size * 0.05f;
+        float avail = size - 2 * pad;
+        float s     = Math.Min(avail / widthUnits, avail / heightUnits);
+
+        float bodyH = s * heightUnits;
+
+        // Place the bounding box centred in the icon.
+        float originX = size / 2f;
+        float originY = (size + bodyH) / 2f;  // canvas Y where mascot Y=0 (bottom) sits
+
+        skiaCanvas.Save();
+        skiaCanvas.Translate(originX, originY);
+        skiaCanvas.Scale(1f, -1f);  // mascot space is Y-up; canvas is Y-down
+
+        using (var bodyPath = variant.BodyPath(s))
+        {
+            using var fill = new SKPaint { Color = palette.Body, IsAntialias = true };
+            skiaCanvas.DrawPath(bodyPath, fill);
+
+            using var stroke = new SKPaint
+            {
+                Color       = new SKColor(0, 0, 0, 100),
+                IsAntialias = true,
+                Style       = SKPaintStyle.Stroke,
+                StrokeWidth = Math.Max(0.8f, s * 0.04f),
+            };
+            skiaCanvas.DrawPath(bodyPath, stroke);
+        }
+
+        // Panda ears are decorations, not part of BodyPath — add them so the silhouette is distinct.
+        if (variant == MascotVariant.Panda)
+        {
+            using var earPaint = new SKPaint { Color = new SKColor(0, 0, 0, 217), IsAntialias = true };
+            foreach (float sign in new[] { -1f, 1f })
+                skiaCanvas.DrawCircle(sign * s * 0.30f, s * 0.85f, s * 0.18f, earPaint);
+        }
+
+        // Robot antenna bulb is a decoration — the red dot makes the silhouette instantly readable.
+        if (variant == MascotVariant.Robot)
+        {
+            using var bulbPaint = new SKPaint { Color = new SKColor(255, 64, 77, 255), IsAntialias = true };
+            skiaCanvas.DrawCircle(0f, s * 1.06f, s * 0.08f, bulbPaint);
+        }
+
+        skiaCanvas.Restore();
+
+        return SkiaBitmapToIcon(skiaBmp, size);
+    }
+
+    // Wraps the SkiaSharp bitmap in a minimal .ico container (PNG-in-ICO, Vista+ format).
+    // This is more reliable than GetHicon() which silently drops 32-bit alpha on Windows 11.
+    private static System.Drawing.Icon SkiaBitmapToIcon(SKBitmap skiaBmp, int size)
+    {
+        using var image   = SKImage.FromBitmap(skiaBmp);
+        using var encoded = image.Encode(SKEncodedImageFormat.Png, 100);
+        byte[] png = encoded.ToArray();
+
+        using var ms = new System.IO.MemoryStream();
+        using var bw = new System.IO.BinaryWriter(ms);
+
+        // ICONDIR
+        bw.Write((short)0);   // reserved
+        bw.Write((short)1);   // type = icon
+        bw.Write((short)1);   // image count
+
+        // ICONDIRENTRY
+        byte dim = (byte)(size <= 255 ? size : 0);
+        bw.Write(dim);           // width  (0 = 256)
+        bw.Write(dim);           // height
+        bw.Write((byte)0);       // color count (0 = > 8bpp)
+        bw.Write((byte)0);       // reserved
+        bw.Write((short)0);      // planes
+        bw.Write((short)32);     // bit depth
+        bw.Write(png.Length);    // image data size
+        bw.Write(22);            // offset to image data (6 + 16)
+
+        bw.Write(png);
+        ms.Position = 0;
+
+        return new System.Drawing.Icon(ms, size, size);
     }
 }

@@ -23,10 +23,14 @@ public sealed class MascotSettings
 
     public MascotSettings() => Load();
 
+    // Fired on the UI thread whenever color or variant changes.
+    public event Action? AppearanceChanged;
+
     public int CycleColor()
     {
         ColorIndex = (ColorIndex + 1) % 10;
         Save("ColorIndex", ColorIndex);
+        AppearanceChanged?.Invoke();
         return ColorIndex;
     }
 
@@ -34,6 +38,7 @@ public sealed class MascotSettings
     {
         VariantIndex = (VariantIndex + 1) % 7;
         Save("VariantIndex", VariantIndex);
+        AppearanceChanged?.Invoke();
         return VariantIndex;
     }
 
