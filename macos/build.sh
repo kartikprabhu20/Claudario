@@ -30,6 +30,17 @@ cp Info.plist.template "${APP_DIR}/Contents/Info.plist"
 cp claudario-hook "${RESOURCES_DIR}/claudario-hook"
 chmod +x "${RESOURCES_DIR}/claudario-hook"
 
+# Generate AppIcon.icns from the orange-dog mascot. The binary itself
+# exports the 10 standard iconset PNGs in --export-iconset mode; we then
+# hand the iconset to `iconutil` to pack into .icns.
+echo "==> Generating AppIcon.icns"
+ICONSET_PARENT="$(mktemp -d)"
+ICONSET_DIR="${ICONSET_PARENT}/AppIcon.iconset"
+mkdir -p "${ICONSET_DIR}"
+"${BIN_PATH}" --export-iconset "${ICONSET_DIR}"
+iconutil -c icns "${ICONSET_DIR}" -o "${RESOURCES_DIR}/AppIcon.icns"
+rm -rf "${ICONSET_PARENT}"
+
 # Ad-hoc codesign so the app can be launched without Gatekeeper warnings
 codesign --force --deep --sign - "${APP_DIR}" 2>/dev/null || true
 

@@ -24,6 +24,18 @@ final class MascotScene: SKScene {
     private let rightFoot = SKShapeNode()
     private let propLabel = SKLabelNode()
 
+    // Usage bars sit to the right of the mascot. They are parented to
+    // the scene (not `mascotNode`) so they sidestep the body squash
+    // SKActions and the xScale direction flip — the position is synced
+    // to mascotNode each frame in update(_:).
+    private let usageBarsContainer = SKNode()
+    private let sessionTrack = SKShapeNode()
+    private let sessionFill = SKShapeNode()
+    private let contextTrack = SKShapeNode()
+    private let contextFill = SKShapeNode()
+    private var currentUsage: SessionUsage = .zero
+    private var barsVisible: Bool = true
+
     private(set) var mascotSize: CGFloat = 44
     private var colorIndex: Int = 0
     private var variantIndex: Int = 0
@@ -102,6 +114,7 @@ final class MascotScene: SKScene {
             game?.tick(currentTime)
         }
         tickPetting(currentTime: currentTime)
+        syncUsageBarsPosition()
     }
 
     private func addChildNodes() {
@@ -139,7 +152,19 @@ final class MascotScene: SKScene {
         propLabel.isHidden = true
         mascotNode.addChild(propLabel)
 
+        for track in [sessionTrack, contextTrack] {
+            track.strokeColor = .clear
+            track.fillColor = NSColor.black.withAlphaComponent(0.18)
+            usageBarsContainer.addChild(track)
+        }
+        for fill in [sessionFill, contextFill] {
+            fill.strokeColor = .clear
+            usageBarsContainer.addChild(fill)
+        }
+        usageBarsContainer.zPosition = 5
+
         addChild(mascotNode)
+        addChild(usageBarsContainer)
     }
 
     private func rebuildMascot() {
@@ -187,8 +212,65 @@ final class MascotScene: SKScene {
         propLabel.fontSize = s * 0.5
         propLabel.position = CGPoint(x: 0, y: s * 1.15)
 
+        rebuildUsageBars()
+
         positionAtStart()
         clampCurrentX()
+    }
+
+    private func rebuildUsageBars() {
+        let s = mascotSize
+        let barW: CGFloat = 4, gap: CGFloat = 2
+        let baseX = s / 2 + 6
+        let trackRect = { (xOffset: CGFloat) -> CGPath in
+            CGPath(roundedRect: CGRect(x: xOffset, y: 0, width: barW, height: s),
+                   cornerWidth: barW / 2, cornerHeight: barW / 2, transform: nil)
+        }
+        sessionTrack.path = trackRect(baseX)
+        contextTrack.path = trackRect(baseX + barW + gap)
+        applyUsage(currentUsage)
+        syncUsageBarsPosition()
+    }
+
+    private func applyUsage(_ usage: SessionUsage) {
+        currentUsage = usage
+        let s = mascotSize
+        let barW: CGFloat = 4, gap: CGFloat = 2
+        let baseX = s / 2 + 6
+        applyFill(node: sessionFill, x: baseX, width: barW, height: s, percent: usage.sessionPercent)
+        applyFill(node: contextFill, x: baseX + barW + gap, width: barW, height: s, percent: usage.contextPercent)
+    }
+
+    private func applyFill(node: SKShapeNode, x: CGFloat, width: CGFloat, height: CGFloat, percent: Double) {
+        let clamped = min(1.0, max(0.0, percent))
+        let h = CGFloat(clamped) * height
+        if h <= 0.01 {
+            node.path = nil
+            return
+        }
+        node.path = CGPath(
+            roundedRect: CGRect(x: x, y: 0, width: width, height: h),
+            cornerWidth: width / 2, cornerHeight: width / 2, transform: nil)
+        node.fillColor = colorForPercent(clamped)
+    }
+
+    private func colorForPercent(_ p: Double) -> NSColor {
+        if p < 0.6 { return .systemGreen }
+        if p < 0.85 { return .systemYellow }
+        return .systemRed
+    }
+
+    private func syncUsageBarsPosition() {
+        usageBarsContainer.position = mascotNode.position
+    }
+
+    func setUsage(_ usage: SessionUsage) {
+        applyUsage(usage)
+    }
+
+    func setProgressBarsVisible(_ visible: Bool) {
+        barsVisible = visible
+        usageBarsContainer.isHidden = !visible
     }
 
     /// y-coordinate where the mascot's feet rest. We keep it low so the

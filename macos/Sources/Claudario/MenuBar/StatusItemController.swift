@@ -51,6 +51,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         enabled.state = (appDelegate?.isEnabled ?? false) ? .on : .off
         menu.addItem(enabled)
 
+        let bars = NSMenuItem(title: "Show Usage Bars", action: #selector(toggleUsageBars), keyEquivalent: "")
+        bars.target = self
+        bars.state = settings.showProgressBars ? .on : .off
+        menu.addItem(bars)
+
         if #available(macOS 13.0, *) {
             let login = NSMenuItem(title: "Launch at Login", action: #selector(toggleLoginAtLaunch), keyEquivalent: "")
             login.target = self
@@ -97,6 +102,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     @objc private func toggleEnabled() {
         appDelegate?.isEnabled.toggle()
+    }
+
+    @objc private func toggleUsageBars() {
+        settings.showProgressBars.toggle()
     }
 
     @objc private func toggleLoginAtLaunch() {
@@ -152,6 +161,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     @objc private func showControls() {
         let alert = NSAlert()
+        alert.icon = NSApp.applicationIconImage
         alert.messageText = "Claudario Controls"
         
         let activities = [
@@ -208,6 +218,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     @objc private func about() {
         let alert = NSAlert()
+        alert.icon = NSApp.applicationIconImage
         alert.messageText = "Claudario"
         alert.informativeText = "Mascot companion for Claude Code.\nWalks above the Dock while Claude works."
         alert.runModal()

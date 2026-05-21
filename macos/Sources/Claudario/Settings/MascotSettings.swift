@@ -8,10 +8,11 @@ final class MascotSettings {
 
     private let defaults: UserDefaults
     private enum Key {
-        static let colorIndex    = "claudario.colorIndex"
-        static let size          = "claudario.size"
-        static let variantIndex  = "claudario.variantIndex"
-        static let dinoHighScore = "claudario.dinoHighScore"
+        static let colorIndex        = "claudario.colorIndex"
+        static let size              = "claudario.size"
+        static let variantIndex      = "claudario.variantIndex"
+        static let dinoHighScore     = "claudario.dinoHighScore"
+        static let showProgressBars  = "claudario.showProgressBars"
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -22,6 +23,8 @@ final class MascotSettings {
     var onColorChanged: ((Int) -> Void)?
     /// Fired after `variantIndex` is mutated. Receives the clamped new value.
     var onVariantChanged: ((Int) -> Void)?
+    /// Fired after `showProgressBars` is mutated. Receives the new value.
+    var onShowProgressBarsChanged: ((Bool) -> Void)?
 
     var colorIndex: Int {
         get {
@@ -58,6 +61,14 @@ final class MascotSettings {
     var dinoHighScore: Int {
         get { max(0, defaults.object(forKey: Key.dinoHighScore) as? Int ?? 0) }
         set { defaults.set(max(0, newValue), forKey: Key.dinoHighScore) }
+    }
+
+    var showProgressBars: Bool {
+        get { defaults.object(forKey: Key.showProgressBars) as? Bool ?? true }
+        set {
+            defaults.set(newValue, forKey: Key.showProgressBars)
+            onShowProgressBarsChanged?(newValue)
+        }
     }
 
     /// Move to the next palette index (wraps). Persists, returns new index.

@@ -45,6 +45,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             onActivity:   { [weak self] activity in
                 self?.overlay.scene.setActivity(activity)
+            },
+            onUsageUpdate: { [weak self] usage in
+                self?.overlay.scene.setUsage(usage)
             }
         )
 
@@ -57,6 +60,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = StatusItemController(appDelegate: self, settings: settings)
         settings.onVariantChanged = { [weak self] _ in self?.statusItem.refreshIcon() }
         settings.onColorChanged   = { [weak self] _ in self?.statusItem.refreshIcon() }
+
+        NSApp.applicationIconImage = MascotIconRenderer.renderAppIcon(
+            variant: .dog,
+            color: MascotPalette.colors[0],
+            pointSize: 512)
+
+        overlay.scene.setProgressBarsVisible(settings.showProgressBars)
+        settings.onShowProgressBarsChanged = { [weak self] visible in
+            self?.overlay.scene.setProgressBarsVisible(visible)
+        }
     }
 
     private func playRepeated(_ s: AppSound, count: Int, interval: TimeInterval) {
