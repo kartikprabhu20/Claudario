@@ -26,9 +26,11 @@ mkdir -p "${MACOS_DIR}" "${RESOURCES_DIR}"
 cp "${BIN_PATH}" "${MACOS_DIR}/${APP_NAME}"
 cp Info.plist.template "${APP_DIR}/Contents/Info.plist"
 
-# Bundle the hook script alongside the binary so the app can install it
+# Bundle the hook + statusline scripts alongside the binary so the app can install them
 cp claudario-hook "${RESOURCES_DIR}/claudario-hook"
 chmod +x "${RESOURCES_DIR}/claudario-hook"
+cp claudario-statusline "${RESOURCES_DIR}/claudario-statusline"
+chmod +x "${RESOURCES_DIR}/claudario-statusline"
 
 # Generate AppIcon.icns from the orange-dog mascot. The binary itself
 # exports the 10 standard iconset PNGs in --export-iconset mode; we then

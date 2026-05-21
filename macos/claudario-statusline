@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Claudario statusline bridge — Claude Code pipes a JSON blob (containing
+# context_window, rate_limits, model, etc.) into stdin every time the
+# statusline refreshes. We tee the part the mascot needs to
+# ~/.claudario/usage.json, then forward stdin to the user's previous
+# statusline command (if any) so their existing output is preserved.
+# Best-effort: never fail or block the statusline.
+
+input=$(cat)
+
+{
+  mkdir -p "${HOME}/.claudario" 2>/dev/null \
+    && printf '%s' "$input" \
+       | jq -c '{context_window, rate_limits, model, written_at: (now * 1000 | floor)}' \
+       > "${HOME}/.claudario/usage.json.tmp" 2>/dev/null \
+    && mv "${HOME}/.claudario/usage.json.tmp" "${HOME}/.claudario/usage.json" 2>/dev/null
+} || true
+
+# If Claudario backed up an upstream statusline command at install time,
+# run it now with the same stdin so the user sees their original output.
+UPSTREAM_CMD_FILE="${HOME}/.claudario/upstream-statusline.cmd"
+if [ -f "$UPSTREAM_CMD_FILE" ]; then
+  UPSTREAM_CMD=$(cat "$UPSTREAM_CMD_FILE")
+  if [ -n "$UPSTREAM_CMD" ]; then
+    printf '%s' "$input" | bash -c "$UPSTREAM_CMD"
+  fi
+fi

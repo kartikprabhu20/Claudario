@@ -105,9 +105,17 @@ Claudario is a lightweight desktop mascot that brings the internal state of Clau
   strip. Mascot pinned left, score bottom-right, obstacles in the
   mascot's color. **↑** to jump, **R** to restart, **Esc** to exit.
   High score persists across launches.
+- **Usage bars** (macOS) — optional twin progress bars beside the
+  mascot that mirror Claude Code's own *context window* (% of 200k /
+  1M used) and *5-hour rate-limit* indicators with exact-match values.
+  Toggle from the menu (**Show Usage Bars**). Requires the one-click
+  **Install Usage Statusline** action; **no API tokens are ever spent**
+  — Claudario only reads the JSON Claude Code already produces for its
+  statusline UI.
 - Loopback-only HTTP server (not reachable off-host).
-- One-click install / uninstall of Claude Code hooks (with backup of
-  your existing `settings.json`).
+- One-click install / uninstall of Claude Code hooks **and** the usage
+  statusline wrapper (with backup of your existing `settings.json`).
+  **Both integrations are 100% local** — no API calls, no extra tokens.
 - Optional Launch at Login.
 
 ---
@@ -156,10 +164,13 @@ Click the menu-bar icon to get the menu:
 
 ```
 Enabled                              ✓
+Show Usage Bars                      ✓
 Launch at Login
 ─────────────────────────────────
 Install Claude Code Hooks
 Uninstall Claude Code Hooks
+Install Usage Statusline
+Uninstall Usage Statusline       (visible once installed)
 ─────────────────────────────────
 Test: Walk + Jump
 Test: Notify
@@ -231,13 +242,19 @@ Output lands in `Claudario.Windows\bin\Release\net8.0-windows\win-x64\publish\`.
 
 ## Setting up Claude Code integration
 
-There are two pieces:
+There are two required pieces, plus one optional one for the usage bars:
 
 1. **The app must be running.** Either launch it manually or enable
    **Launch at Login** from the menu so it starts automatically.
 2. **Claude Code hooks must be installed** into your settings file.
    This is done once. Click **Install Claude Code Hooks** from the
    menu (menu-bar on macOS, right-click tray icon on Windows).
+3. *(macOS, optional)* **Install Usage Statusline** — adds the
+   context-window and 5-hour rate-limit bars beside the mascot. Wraps
+   your existing statusline if you have one. **No API tokens are spent
+   by this; it only reads data Claude Code already produces locally.**
+   See [What "Install Usage Statusline" actually does](#what-install-usage-statusline-actually-does)
+   below.
 
 That's it. Open a new terminal, run `claude` in any directory, ask it to
 do something multi-step (e.g. *"add a function and run the tests"*) and
@@ -249,6 +266,11 @@ permission, and jump when it finishes.
 > below.
 
 ### What "Install Claude Code Hooks" actually does
+
+> **No API tokens are spent.** Every hook event Claude Code fires is
+> piped to a local bash/batch script that POSTs to `127.0.0.1`. There
+> is **no outbound network traffic** to Anthropic or anyone else — the
+> bridge cannot make API calls, only nudge the mascot.
 
 It's a non-destructive merge into `~/.claude/settings.json`
 (macOS/Linux) or `%USERPROFILE%\.claude\settings.json` (Windows):
@@ -264,6 +286,45 @@ It's a non-destructive merge into `~/.claude/settings.json`
    `PreCompact`. Existing entries you already have are kept.
 4. If a previous Claudario entry exists, it's deduplicated, not
    appended (safe to click "Install" multiple times).
+
+### What "Install Usage Statusline" actually does
+
+The two little progress bars next to the mascot mirror Claude Code's
+own context-window and 5-hour rate-limit indicators. Those values
+(`context_window.used_percentage` and
+`rate_limits.five_hour.used_percentage`) only exist in the JSON Claude
+Code pipes into its statusline command — they're not on disk anywhere
+and not exposed to hooks. To read them, Claudario installs a tiny
+wrapper statusline (macOS only at the moment).
+
+> **No API tokens are spent.** The wrapper only reads the JSON Claude
+> Code already produces for the statusline UI. Nothing is sent to
+> Anthropic — no extra API calls, no extra messages. The bars mirror
+> the exact same numbers your existing statusline already shows.
+
+What the install does:
+
+1. Copies the bundled `claudario-statusline` script into
+   `~/.claudario/statusline` (a ~20-line bash file).
+2. Reads your current `~/.claude/settings.json`. If you already have a
+   `statusLine` configured, its full command is saved to
+   `~/.claudario/upstream-statusline.cmd` so it can be restored later.
+3. Sets `statusLine.command` to `bash ~/.claudario/statusline` (with a
+   timestamped backup of `settings.json` written alongside, same as the
+   hooks installer).
+4. From then on, every time Claude Code refreshes the statusline, the
+   wrapper:
+   - tees `context_window`, `rate_limits`, and `model` into
+     `~/.claudario/usage.json` (atomic rename, never blocks the bar);
+   - forwards the same stdin to your previous statusline command, so
+     its output is preserved unchanged.
+
+Claudario's running app polls `~/.claudario/usage.json` every 60 s and
+also refreshes it on every hook event, so the mascot bars stay live
+without any extra work from you. **Uninstall Usage Statusline** restores
+your original `statusLine.command` (or removes the entry if you didn't
+have one) and clears the sidecar files. Safe to re-run; the "Install"
+entry shows as "Reinstall Usage Statusline" once it's already active.
 
 The injected entry looks like this on **macOS**:
 
@@ -795,8 +856,11 @@ from the headers and route the body to `EventRouter`.
 
 ```
 ~/.claudario/
-├── port                # plain-text decimal port number
-└── hook                # bash bridge installed by HookInstaller
+├── port                       # plain-text decimal port number
+├── hook                       # bash hook bridge (HookInstaller)
+├── statusline                 # bash statusline wrapper (StatusLineInstaller, optional)
+├── upstream-statusline.cmd    # backup of your previous statusLine.command (optional)
+└── usage.json                 # latest context_window + rate_limits (written by the wrapper)
 
 ~/.claude/
 ├── settings.json                  # your Claude Code config (we patch this)
@@ -905,7 +969,10 @@ windows/Claudario.Windows/bin/Release/net8.0-windows/
 - **Hook script runs in your shell environment** and its only outbound
   action is `curl` to `127.0.0.1`.
 - **No network access** from the app itself: no outbound HTTP, no
-  cloud service.
+  cloud service. Neither the hook bridge nor the statusline wrapper
+  makes any API calls to Anthropic — **installing either integration
+  spends zero tokens**. The wrapper only re-reads the JSON Claude Code
+  already produces locally for its own statusline UI.
 - **Windows Registry**: Claudario reads/writes only
   `HKCU\Software\Claudario` (settings) and
   `HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run` (Launch at Login).
@@ -1056,8 +1123,11 @@ the tray menu and click the mascot during the ~4 s walk phase.
 
 1. Menu bar → **Uninstall Claude Code Hooks** (removes our entries
    from `~/.claude/settings.json`; your other hooks are untouched).
-2. Menu bar → **Quit**.
-3. (Optional cleanup) `rm -rf ~/.claudario macos/build/Claudario.app`.
+2. Menu bar → **Uninstall Usage Statusline** (only shown if installed;
+   restores your previous `statusLine.command` if there was one, or
+   removes the entry if not).
+3. Menu bar → **Quit**.
+4. (Optional cleanup) `rm -rf ~/.claudario macos/build/Claudario.app`.
 
 ### Windows
 

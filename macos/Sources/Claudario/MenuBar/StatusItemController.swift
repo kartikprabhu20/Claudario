@@ -73,6 +73,21 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         uninstall.target = self
         menu.addItem(uninstall)
 
+        let statusLineInstalled = StatusLineInstaller().isInstalled
+        let installSL = NSMenuItem(
+            title: statusLineInstalled ? "Reinstall Usage Statusline" : "Install Usage Statusline",
+            action: #selector(installStatusLine), keyEquivalent: "")
+        installSL.target = self
+        menu.addItem(installSL)
+
+        if statusLineInstalled {
+            let uninstallSL = NSMenuItem(
+                title: "Uninstall Usage Statusline",
+                action: #selector(uninstallStatusLine), keyEquivalent: "")
+            uninstallSL.target = self
+            menu.addItem(uninstallSL)
+        }
+
         menu.addItem(.separator())
 
         let walk = NSMenuItem(title: "Test: Walk + Jump", action: #selector(testWalkJump), keyEquivalent: "")
@@ -140,6 +155,27 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             presentInfo("Hooks removed.", detail: "Claude Code will no longer notify Claudario.")
         } catch {
             presentError(error, summary: "Hook uninstall failed")
+        }
+    }
+
+    @objc private func installStatusLine() {
+        do {
+            let path = try StatusLineInstaller().install()
+            presentInfo(
+                "Usage statusline installed.",
+                detail: "Patched: \(path.path)\nClaudario will now mirror Claude Code's context and session bars. Your previous statusline (if any) still renders."
+            )
+        } catch {
+            presentError(error, summary: "Statusline install failed")
+        }
+    }
+
+    @objc private func uninstallStatusLine() {
+        do {
+            try StatusLineInstaller().uninstall()
+            presentInfo("Usage statusline removed.", detail: "Your previous statusline (if any) has been restored.")
+        } catch {
+            presentError(error, summary: "Statusline uninstall failed")
         }
     }
 

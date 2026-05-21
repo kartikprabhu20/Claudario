@@ -5,6 +5,7 @@ enum FSPaths {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claudario")
     }
     static var portFile: URL { configDir.appendingPathComponent("port") }
+    static var usageFile: URL { configDir.appendingPathComponent("usage.json") }
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -13,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) var server: EventServer!
     private(set) var router: EventRouter!
     private(set) var settings: MascotSettings!
+    private(set) var usageMonitor: UsageMonitor!
     let sound = SoundPlayer()
 
     var isEnabled: Bool = true {
@@ -32,6 +34,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         overlay.scene.attachSettings(settings)
         overlay.show()
 
+        usageMonitor = UsageMonitor(
+            fileURL: FSPaths.usageFile,
+            onUpdate: { [weak self] usage in
+                self?.overlay.scene.setUsage(usage)
+            })
+        usageMonitor.start()
+
         router = EventRouter(
             onWalk:       { [weak self] in self?.overlay.scene.setState(.walking) },
             onIdle:       { [weak self] in self?.overlay.scene.setState(.idle) },
@@ -46,8 +55,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onActivity:   { [weak self] activity in
                 self?.overlay.scene.setActivity(activity)
             },
-            onUsageUpdate: { [weak self] usage in
-                self?.overlay.scene.setUsage(usage)
+            onHookActivity: { [weak self] in
+                self?.usageMonitor.refresh()
             }
         )
 
