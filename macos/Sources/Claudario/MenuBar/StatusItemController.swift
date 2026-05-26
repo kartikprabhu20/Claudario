@@ -43,6 +43,14 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         rebuildMenu(menu)
     }
 
+    /// Re-render the menu in-place. Call when an external setting change
+    /// invalidates a label or checkmark (e.g. water reminder frequency).
+    func rebuildMenu() {
+        if let menu = statusItem.menu {
+            rebuildMenu(menu)
+        }
+    }
+
     private func rebuildMenu(_ menu: NSMenu) {
         menu.removeAllItems()
 
@@ -56,12 +64,36 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         bars.state = settings.showProgressBars ? .on : .off
         menu.addItem(bars)
 
+        // Drink-water reminder: parent item shows the current interval
+        // ("Every 60 min") or "Off"; submenu lets the user pick.
+        let waterParent = NSMenuItem(
+            title: waterReminderMenuTitle(),
+            action: nil, keyEquivalent: "")
+        waterParent.submenu = makeWaterReminderSubmenu()
+        menu.addItem(waterParent)
+
         if #available(macOS 13.0, *) {
             let login = NSMenuItem(title: "Launch at Login", action: #selector(toggleLoginAtLaunch), keyEquivalent: "")
             login.target = self
             login.state = (SMAppService.mainApp.status == .enabled) ? .on : .off
             menu.addItem(login)
         }
+
+        // Touch Bar mascot — informational on TB Macs, greyed/disabled
+        // elsewhere. There's nothing to toggle; the keymap (`↓` in
+        // controlled mode) is the actual entry point.
+        let tbItem: NSMenuItem
+        if TouchBarSupport.isAvailable {
+            tbItem = NSMenuItem(
+                title: "Touch Bar Mascot: press ↓ in control mode",
+                action: nil, keyEquivalent: "")
+        } else {
+            tbItem = NSMenuItem(
+                title: "Touch Bar Mascot (unavailable on this Mac)",
+                action: nil, keyEquivalent: "")
+        }
+        tbItem.isEnabled = false
+        menu.addItem(tbItem)
 
         menu.addItem(.separator())
 
@@ -97,6 +129,20 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let notif = NSMenuItem(title: "Test: Notify", action: #selector(testNotify), keyEquivalent: "")
         notif.target = self
         menu.addItem(notif)
+
+        let testWater = NSMenuItem(
+            title: "Test: Water Reminder", action: #selector(testWaterReminder),
+            keyEquivalent: "")
+        testWater.target = self
+        menu.addItem(testWater)
+
+        if TouchBarSupport.isAvailable {
+            let testTB = NSMenuItem(
+                title: "Test: Touch Bar Mode", action: #selector(testTouchBarMode),
+                keyEquivalent: "")
+            testTB.target = self
+            menu.addItem(testTB)
+        }
 
         menu.addItem(.separator())
 
@@ -195,6 +241,57 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         router.handle(Data(n.utf8))
     }
 
+    @objc private func testWaterReminder() {
+        appDelegate?.fireWaterReminderForTesting()
+    }
+
+    @objc private func testTouchBarMode() {
+        appDelegate?.overlay.enterTouchBarMode()
+    }
+
+    // MARK: - Water reminder menu
+
+    private func waterReminderMenuTitle() -> String {
+        if settings.waterReminderEnabled {
+            return "Drink Water Reminder: Every \(settings.waterReminderIntervalMinutes) min"
+        }
+        return "Drink Water Reminder: Off"
+    }
+
+    private func makeWaterReminderSubmenu() -> NSMenu {
+        let sub = NSMenu()
+        let off = NSMenuItem(
+            title: "Off", action: #selector(setWaterReminderOff), keyEquivalent: "")
+        off.target = self
+        off.state = settings.waterReminderEnabled ? .off : .on
+        sub.addItem(off)
+        sub.addItem(.separator())
+        for minutes in MascotSettings.waterReminderIntervals {
+            let label: String = minutes >= 60 && minutes % 60 == 0
+                ? "Every \(minutes / 60) hour\(minutes / 60 > 1 ? "s" : "")"
+                : "Every \(minutes) min"
+            let item = NSMenuItem(
+                title: label, action: #selector(setWaterReminderInterval(_:)),
+                keyEquivalent: "")
+            item.target = self
+            item.representedObject = NSNumber(value: minutes)
+            item.state = (settings.waterReminderEnabled
+                && settings.waterReminderIntervalMinutes == minutes) ? .on : .off
+            sub.addItem(item)
+        }
+        return sub
+    }
+
+    @objc private func setWaterReminderOff() {
+        settings.waterReminderEnabled = false
+    }
+
+    @objc private func setWaterReminderInterval(_ sender: NSMenuItem) {
+        guard let n = sender.representedObject as? NSNumber else { return }
+        settings.waterReminderIntervalMinutes = n.intValue
+        settings.waterReminderEnabled = true
+    }
+
     @objc private func showControls() {
         let alert = NSAlert()
         alert.icon = NSApp.applicationIconImage
@@ -214,6 +311,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             activityRows += "\(leftSide)\(n2)  \(name2)\n"
         }
 
+        let touchBarLine = TouchBarSupport.isAvailable
+            ? "  ↓               send mascot to Touch Bar (↑ to return)\n"
+            : ""
+
         let fullText = """
         Click the mascot to take control. While in control:
 
@@ -232,7 +333,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         Variant:
           v               cycle mascot shape (7 total)
-
+        \(touchBarLine)
         Esc, click outside, app-switch, or any incoming
         Claude activity releases control.
         """

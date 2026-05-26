@@ -44,10 +44,26 @@ final class MascotScene: SKScene {
     private var game: DinoGameController?
     private weak var settingsRef: MascotSettings?
     /// Latest Claude state event that arrived while the player was in
-    /// the dino game. Replayed on game exit so the mascot reflects
-    /// whatever Claude was doing once the user returns from playing.
+    /// the dino game (or on the touch bar). Replayed on exit so the
+    /// mascot reflects whatever Claude was doing once the user returns.
     private var pendingState: MascotState?
     private var pendingActivity: MascotActivity?
+
+    /// True while a water-reminder droplet is floating above the head.
+    /// Suppresses the activity prop emoji and overrides walk-state click
+    /// pass-through so the user can dismiss the reminder by clicking the
+    /// mascot.
+    private(set) var waterReminderActive: Bool = false
+    private var waterDropletNode: SKLabelNode?
+    /// Reminder ticks that arrive while `.playing` are deferred and
+    /// replayed on `exitGame()`, mirroring `pendingState`/`pendingActivity`.
+    private var pendingWaterReminder: Bool = false
+
+    /// Forwards palette/variant/activity changes to a Touch Bar mascot
+    /// when one is active, so the strip stays in sync with the screen
+    /// mascot. Set by `OverlayWindowController` when wiring in the
+    /// `TouchBarMascotController`.
+    var touchBarMirror: TouchBarMascotMirror?
 
     private var variant: MascotVariant {
         MascotVariant.allCases[max(0, min(variantIndex, MascotVariant.allCases.count - 1))]
@@ -301,10 +317,11 @@ final class MascotScene: SKScene {
     // MARK: - State
 
     func setState(_ newState: MascotState) {
-        // While playing, Claude-driven state changes (`onWalk`, `onIdle`)
-        // are deferred and replayed once the player exits the game via
-        // `exitGame()` — that path bypasses this guard.
-        if state == .playing && newState != .playing {
+        // While playing or on the touch bar, Claude-driven state changes
+        // (`onWalk`, `onIdle`) are deferred and replayed once the user
+        // exits via `exitGame()` / `exitTouchBar()` — those paths bypass
+        // this guard.
+        if (state == .playing || state == .touchBar) && newState != state {
             pendingState = newState
             return
         }
@@ -322,8 +339,45 @@ final class MascotScene: SKScene {
             clearAutoMotion()
         case .playing:
             startGame()
+        case .touchBar:
+            enterTouchBar()
         }
         sceneDelegate?.mascotScene(self, didChangeStateTo: state)
+    }
+
+    private func enterTouchBar() {
+        clearAutoMotion()
+        mascotNode.removeAction(forKey: userMoveActionKey)
+        mascotNode.removeAction(forKey: jumpActionKey)
+        mascotNode.removeAction(forKey: decorationActionKey)
+        body.removeAction(forKey: bodySquashKey)
+        for n in [leftEye, rightEye] { n.removeAction(forKey: eyeActionKey) }
+        for n in [leftPupil, rightPupil] { n.removeAction(forKey: pupilActionKey) }
+        stopFootAnimation()
+        mascotNode.zRotation = 0
+        body.xScale = 1
+        body.yScale = 1
+        body.zRotation = 0
+        userMoveDirection = 0
+        mascotNode.isHidden = true
+        usageBarsContainer.isHidden = true
+    }
+
+    /// User-initiated exit from touch-bar mode. Bypasses the in-touch-bar
+    /// deferral guard in `setState(_:)` so the scene can actually leave
+    /// the `.touchBar` state.
+    func exitTouchBar() {
+        guard state == .touchBar else { return }
+        state = .idle
+        mascotNode.isHidden = false
+        usageBarsContainer.isHidden = !barsVisible
+        applyActivityDecoration()
+        sceneDelegate?.mascotScene(self, didChangeStateTo: state)
+        applyPendingClaudeState()
+        if pendingWaterReminder {
+            pendingWaterReminder = false
+            showWaterReminder()
+        }
     }
 
     private func startGame() {
@@ -390,13 +444,16 @@ final class MascotScene: SKScene {
     /// the `.playing` state.
     func exitGame() {
         guard state == .playing else { return }
-        let leavingPlaying = true
         state = .idle
         clearAutoMotion()
         userMoveDirection = 0
         tearDownGame()
         sceneDelegate?.mascotScene(self, didChangeStateTo: state)
-        if leavingPlaying { applyPendingClaudeState() }
+        applyPendingClaudeState()
+        if pendingWaterReminder {
+            pendingWaterReminder = false
+            showWaterReminder()
+        }
     }
 
     var isGameOver: Bool { game?.isOver ?? false }
@@ -479,19 +536,22 @@ final class MascotScene: SKScene {
     // MARK: - Activity / customization
 
     func setActivity(_ activity: MascotActivity) {
-        if state == .playing {
+        if state == .playing || state == .touchBar {
             pendingActivity = activity
             return
         }
         guard currentActivity != activity else { return }
         currentActivity = activity
         propLabel.text = activity.prop
-        propLabel.isHidden = activity.prop.isEmpty
+        // While a water-reminder droplet is parked above the head, the
+        // activity prop emoji is suppressed so the two don't overlap.
+        propLabel.isHidden = waterReminderActive || activity.prop.isEmpty
         applyActivityDecoration()
         if state == .walking {
             mascotNode.removeAction(forKey: walkActionKey)
             startAutoMotionForActivity()
         }
+        touchBarMirror?.touchBarApplyActivity(activity)
     }
 
     func setSize(points: Int) {
@@ -516,6 +576,7 @@ final class MascotScene: SKScene {
         // (e.g. dog snout uses foot color), so rebuild them too.
         decorationNode.removeAllChildren()
         variant.buildDecorations(into: decorationNode, size: mascotSize, palette: palette)
+        touchBarMirror?.touchBarApplyColor(index: normalized)
     }
 
     func setVariant(index: Int) {
@@ -529,6 +590,11 @@ final class MascotScene: SKScene {
         // re-apply the current activity so its decoration (pupil scan, blink,
         // squash, etc.) re-anchors to the new eyeY.
         applyActivityDecoration()
+        // The droplet is parented to mascotNode directly, so it survives
+        // rebuilds — but rebuildMascot resets propLabel position, which
+        // is where the droplet anchors. Re-anchor if active.
+        if waterReminderActive { repositionWaterDroplet() }
+        touchBarMirror?.touchBarApplyVariant(index: normalized)
     }
 
     private func applyActivityDecoration() {
@@ -664,7 +730,89 @@ final class MascotScene: SKScene {
                 SKAction.moveBy(x: 6, y: 0, duration: 0.1),
             ])
             mascotNode.run(.repeatForever(hop), withKey: decorationActionKey)
+
+        case .drinkingWater:
+            // One-shot "tilt back, sip, return" — the persistent droplet
+            // node is what marks the reminder; this body action just
+            // makes the sip feel intentional.
+            let sip = SKAction.sequence([
+                SKAction.rotate(toAngle: -0.18, duration: 0.22),
+                SKAction.scaleX(to: 1.04, y: 0.96, duration: 0.18),
+                SKAction.scaleX(to: 1.0, y: 1.0, duration: 0.18),
+                SKAction.rotate(toAngle: 0, duration: 0.24),
+            ])
+            body.run(sip, withKey: bodySquashKey)
         }
+    }
+
+    // MARK: - Water reminder
+
+    /// Plays the drinking animation and parks a persistent droplet above
+    /// the head. The droplet rides along with the mascot (parented to
+    /// `mascotNode`) and only goes away on `dismissWaterReminder()`.
+    func showWaterReminder() {
+        if state == .playing {
+            pendingWaterReminder = true
+            return
+        }
+        waterReminderActive = true
+        // Suppress the activity prop emoji so it doesn't overlap.
+        propLabel.isHidden = true
+
+        // Briefly switch to the drinking-water activity for the sip
+        // animation — but don't go through setActivity, which would
+        // overwrite currentActivity and lose the Claude-driven activity
+        // we're meant to return to once dismissed.
+        body.removeAction(forKey: bodySquashKey)
+        let sip = SKAction.sequence([
+            SKAction.rotate(toAngle: -0.18, duration: 0.22),
+            SKAction.scaleX(to: 1.04, y: 0.96, duration: 0.18),
+            SKAction.scaleX(to: 1.0, y: 1.0, duration: 0.18),
+            SKAction.rotate(toAngle: 0, duration: 0.24),
+        ])
+        body.run(sip, withKey: bodySquashKey)
+
+        if waterDropletNode == nil {
+            let droplet = SKLabelNode(text: "💧")
+            droplet.name = "waterReminderDroplet"
+            droplet.fontName = "Apple Color Emoji"
+            droplet.fontSize = mascotSize * 0.5
+            droplet.verticalAlignmentMode = .center
+            droplet.horizontalAlignmentMode = .center
+            droplet.zPosition = 11  // above propLabel
+            mascotNode.addChild(droplet)
+            waterDropletNode = droplet
+            let bob = SKAction.repeatForever(SKAction.sequence([
+                SKAction.moveBy(x: 0, y: 4, duration: 0.6),
+                SKAction.moveBy(x: 0, y: -4, duration: 0.6),
+            ]))
+            droplet.run(bob)
+        }
+        repositionWaterDroplet()
+    }
+
+    /// Removes the droplet and re-applies the current activity decoration
+    /// so the previously-suppressed prop emoji returns.
+    func dismissWaterReminder() {
+        guard waterReminderActive else { return }
+        waterReminderActive = false
+        if let n = waterDropletNode {
+            n.removeAllActions()
+            n.removeFromParent()
+        }
+        waterDropletNode = nil
+        propLabel.text = currentActivity.prop
+        propLabel.isHidden = currentActivity.prop.isEmpty
+        // Drop any lingering one-shot sip action; the activity decoration
+        // re-establishes whatever the current activity wants on body.
+        body.removeAction(forKey: bodySquashKey)
+        applyActivityDecoration()
+    }
+
+    private func repositionWaterDroplet() {
+        guard let droplet = waterDropletNode else { return }
+        droplet.fontSize = mascotSize * 0.5
+        droplet.position = CGPoint(x: 0, y: mascotSize * 1.15)
     }
 
     // MARK: - Petting

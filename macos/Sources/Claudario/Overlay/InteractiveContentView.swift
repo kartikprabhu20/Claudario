@@ -25,6 +25,15 @@ final class InteractiveContentView: NSView {
         guard let scene = scene, let skView = skView else { return nil }
         switch scene.state {
         case .walking:
+            // Normally walking clicks pass through to the Dock, but if a
+            // water reminder is parked above the head the user needs a
+            // way to dismiss it — capture clicks on the mascot in that
+            // case so the bounds check below can land them.
+            if scene.waterReminderActive {
+                let rectInScene = scene.mascotFrameInScene()
+                let rectInSelf = skView.convert(rectInScene, to: self)
+                return rectInSelf.contains(point) ? self : nil
+            }
             return nil
         case .idle, .controlled:
             let rectInScene = scene.mascotFrameInScene()
@@ -34,6 +43,9 @@ final class InteractiveContentView: NSView {
             return rectInSelf.contains(point) ? self : nil
         case .playing:
             return bounds.contains(point) ? self : nil
+        case .touchBar:
+            // On-screen mascot is hidden in touch-bar mode; nothing to hit.
+            return nil
         }
     }
 

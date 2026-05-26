@@ -5,6 +5,7 @@ private enum KeyCode {
     static let left:   UInt16 = 123
     static let right:  UInt16 = 124
     static let up:     UInt16 = 126
+    static let down:   UInt16 = 125
     static let esc:    UInt16 = 53
 
     // Number row → activity slots (matches MascotActivity.allCases order).
@@ -40,10 +41,14 @@ final class OverlayWindowController: NSObject,
 
     private let onUserJump: () -> Void
     private let settings: MascotSettings
+    /// Fired when the user dismisses the water-reminder droplet by
+    /// clicking the mascot. Lets the AppDelegate reset the reminder timer.
+    var onWaterReminderAcknowledged: (() -> Void)?
 
     private var leftHeld = false
     private var rightHeld = false
     private var globalMouseMonitor: Any?
+    private var touchBarController: TouchBarMascotController?
 
     init(settings: MascotSettings, onUserJump: @escaping () -> Void) {
         self.settings = settings
@@ -112,7 +117,18 @@ final class OverlayWindowController: NSObject,
         let shouldCapture: Bool
         switch scene.state {
         case .walking:
-            shouldCapture = false
+            // While walking, the window is normally fully click-through
+            // so the rest of the Dock strip stays usable. But if a water
+            // reminder is showing, capture clicks on the mascot so the
+            // user can dismiss it.
+            if scene.waterReminderActive {
+                let rectInScene = scene.mascotFrameInScene()
+                let rectInWindow = skView.convert(rectInScene, to: nil)
+                let rectInScreen = window.convertToScreen(rectInWindow)
+                shouldCapture = rectInScreen.contains(NSEvent.mouseLocation)
+            } else {
+                shouldCapture = false
+            }
         case .idle, .controlled:
             let rectInScene = scene.mascotFrameInScene()
             let rectInWindow = skView.convert(rectInScene, to: nil)
@@ -120,6 +136,9 @@ final class OverlayWindowController: NSObject,
             shouldCapture = rectInScreen.contains(NSEvent.mouseLocation)
         case .playing:
             shouldCapture = true
+        case .touchBar:
+            // Mascot lives on the Touch Bar; on-screen overlay is empty.
+            shouldCapture = false
         }
         let target = !shouldCapture
         if window.ignoresMouseEvents != target {
@@ -162,6 +181,13 @@ final class OverlayWindowController: NSObject,
     // MARK: - InteractiveContentViewDelegate
 
     func interactiveViewDidClickMascot() {
+        // A click while a water reminder is showing dismisses it,
+        // regardless of state. Notify the reminder service so the timer
+        // restarts from "now" instead of the previous fire.
+        if scene.waterReminderActive {
+            scene.dismissWaterReminder()
+            onWaterReminderAcknowledged?()
+        }
         guard scene.state == .idle else { return }
         enterControlled()
     }
@@ -170,6 +196,9 @@ final class OverlayWindowController: NSObject,
         switch scene.state {
         case .playing:
             handlePlayingKey(keyCode, isRepeat: isRepeat)
+            return
+        case .touchBar:
+            handleTouchBarKey(keyCode, isRepeat: isRepeat)
             return
         case .controlled:
             break
@@ -190,6 +219,9 @@ final class OverlayWindowController: NSObject,
             guard !isRepeat else { return }
             scene.userJump()
             onUserJump()
+        case KeyCode.down:
+            guard !isRepeat, TouchBarSupport.isAvailable else { return }
+            enterTouchBarMode()
         case KeyCode.g:
             guard !isRepeat, scene.currentActivity == .idle else { return }
             scene.setState(.playing)
@@ -227,16 +259,49 @@ final class OverlayWindowController: NSObject,
         }
     }
 
-    func interactiveView(_ view: InteractiveContentView, didReleaseKey keyCode: UInt16) {
-        guard scene.state == .controlled else { return }
+    private func handleTouchBarKey(_ keyCode: UInt16, isRepeat: Bool) {
         switch keyCode {
         case KeyCode.left:
-            leftHeld = false
-            applyMoveDirection()
+            leftHeld = true
+            applyTouchBarMoveDirection()
         case KeyCode.right:
-            rightHeld = false
-            applyMoveDirection()
+            rightHeld = true
+            applyTouchBarMoveDirection()
+        case KeyCode.up:
+            guard !isRepeat else { return }
+            exitTouchBarMode(landingJump: true)
+        case KeyCode.esc:
+            exitTouchBarMode(landingJump: false)
         default:
+            break
+        }
+    }
+
+    func interactiveView(_ view: InteractiveContentView, didReleaseKey keyCode: UInt16) {
+        switch scene.state {
+        case .controlled:
+            switch keyCode {
+            case KeyCode.left:
+                leftHeld = false
+                applyMoveDirection()
+            case KeyCode.right:
+                rightHeld = false
+                applyMoveDirection()
+            default:
+                break
+            }
+        case .touchBar:
+            switch keyCode {
+            case KeyCode.left:
+                leftHeld = false
+                applyTouchBarMoveDirection()
+            case KeyCode.right:
+                rightHeld = false
+                applyTouchBarMoveDirection()
+            default:
+                break
+            }
+        case .idle, .walking, .playing:
             break
         }
     }
@@ -245,9 +310,9 @@ final class OverlayWindowController: NSObject,
 
     func mascotScene(_ scene: MascotScene, didChangeStateTo state: MascotState) {
         switch state {
-        case .controlled, .playing:
-            // Keep the window key + keyboard focus so the player keeps
-            // receiving key events during the game.
+        case .controlled, .playing, .touchBar:
+            // Keep the window key + keyboard focus so we keep receiving
+            // key events (game keys, touch-bar movement keys).
             break
         case .idle, .walking:
             tearDownControl()
@@ -266,11 +331,14 @@ final class OverlayWindowController: NSObject,
     }
 
     private func releaseControl() {
-        guard scene.state == .controlled else {
+        switch scene.state {
+        case .controlled:
+            scene.setState(.idle)
+        case .touchBar:
+            exitTouchBarMode(landingJump: false)
+        default:
             tearDownControl()
-            return
         }
-        scene.setState(.idle)
     }
 
     private func tearDownControl() {
@@ -290,6 +358,68 @@ final class OverlayWindowController: NSObject,
         default:            dir = 0
         }
         scene.setUserMove(direction: dir)
+    }
+
+    private func applyTouchBarMoveDirection() {
+        let dir: CGFloat
+        switch (leftHeld, rightHeld) {
+        case (true, false): dir = -1
+        case (false, true): dir = 1
+        default:            dir = 0
+        }
+        touchBarController?.setMoveDirection(dir)
+    }
+
+    // MARK: - Touch Bar lifecycle
+
+    func enterTouchBarMode() {
+        guard TouchBarSupport.isAvailable else { return }
+        guard scene.state == .controlled || scene.state == .idle else { return }
+        let controller = ensureTouchBarController()
+        scene.touchBarMirror = controller
+        // Force AppKit to re-evaluate `makeTouchBar()` so the system
+        // picks up our custom bar instead of the default.
+        window.touchBar = controller.makeTouchBar(
+            colorIndex: settings.colorIndex,
+            variantIndex: settings.variantIndex,
+            activity: scene.currentActivity)
+        leftHeld = false
+        rightHeld = false
+        scene.setState(.touchBar)
+        // Ensure window keeps key focus so we keep receiving key events.
+        if !window.isKeyWindow {
+            window.allowKeyboardFocus = true
+            window.makeKeyAndOrderFront(nil)
+            window.makeFirstResponder(contentView)
+        }
+    }
+
+    private func exitTouchBarMode(landingJump: Bool) {
+        guard scene.state == .touchBar else { return }
+        touchBarController?.setMoveDirection(0)
+        leftHeld = false
+        rightHeld = false
+        // Detach the custom bar so the system stops rendering it.
+        window.touchBar = nil
+        // exitTouchBar() sets state to .idle and fires the delegate,
+        // which tears down keyboard focus. We re-establish it below if
+        // we want a controlled "landing" with a jump.
+        scene.exitTouchBar()
+        if landingJump {
+            enterControlled()
+            _ = scene.userJump()
+            onUserJump()
+        }
+    }
+
+    private func ensureTouchBarController() -> TouchBarMascotController {
+        if let c = touchBarController { return c }
+        let c = TouchBarMascotController()
+        c.onReturnToScreen = { [weak self] in
+            self?.exitTouchBarMode(landingJump: true)
+        }
+        touchBarController = c
+        return c
     }
 
     private func installGlobalMouseMonitor() {

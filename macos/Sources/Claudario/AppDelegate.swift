@@ -15,6 +15,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) var router: EventRouter!
     private(set) var settings: MascotSettings!
     private(set) var usageMonitor: UsageMonitor!
+    private(set) var waterReminder: WaterReminder!
+    private(set) var waterNotifier: WaterNotifier!
     let sound = SoundPlayer()
 
     var isEnabled: Bool = true {
@@ -79,6 +81,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settings.onShowProgressBarsChanged = { [weak self] visible in
             self?.overlay.scene.setProgressBarsVisible(visible)
         }
+
+        waterNotifier = WaterNotifier()
+        waterNotifier.onAcknowledged = { [weak self] in
+            self?.acknowledgeWaterReminder()
+        }
+
+        waterReminder = WaterReminder(settings: settings)
+        waterReminder.onReminderTick = { [weak self] in
+            self?.deliverWaterReminder()
+        }
+        if settings.waterReminderEnabled {
+            // Ask for notification permission lazily on first enable, so
+            // users who never turn the reminder on aren't prompted.
+            waterNotifier.requestAuthorization()
+            waterReminder.start()
+        }
+        settings.onWaterReminderEnabledChanged = { [weak self] enabled in
+            guard let self = self else { return }
+            if enabled { self.waterNotifier.requestAuthorization() }
+            self.waterReminder.reschedule()
+            self.statusItem.rebuildMenu()
+        }
+        settings.onWaterReminderIntervalChanged = { [weak self] _ in
+            self?.waterReminder.reschedule()
+            self?.statusItem.rebuildMenu()
+        }
+        overlay.onWaterReminderAcknowledged = { [weak self] in
+            self?.acknowledgeWaterReminder()
+        }
+    }
+
+    /// Called when the reminder timer fires. Triggers the on-screen
+    /// mascot animation, plays the notify chime, and posts a banner.
+    private func deliverWaterReminder() {
+        overlay.scene.showWaterReminder()
+        sound.play(.notify)
+        waterNotifier.fire(
+            title: "Time for water",
+            body: "Take a sip — your dog says hi.")
+    }
+
+    /// Called from mascot click or notification-action acknowledgement.
+    /// Dismisses the droplet (idempotent) and resets the timer so the
+    /// next fire is one full interval from now.
+    private func acknowledgeWaterReminder() {
+        overlay.scene.dismissWaterReminder()
+        waterReminder.acknowledge()
+    }
+
+    /// Hook for the "Test: Water Reminder" menu item.
+    func fireWaterReminderForTesting() {
+        deliverWaterReminder()
     }
 
     private func playRepeated(_ s: AppSound, count: Int, interval: TimeInterval) {
