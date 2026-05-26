@@ -8,12 +8,17 @@ final class MascotSettings {
 
     private let defaults: UserDefaults
     private enum Key {
-        static let colorIndex        = "claudario.colorIndex"
-        static let size              = "claudario.size"
-        static let variantIndex      = "claudario.variantIndex"
-        static let dinoHighScore     = "claudario.dinoHighScore"
-        static let showProgressBars  = "claudario.showProgressBars"
+        static let colorIndex                  = "claudario.colorIndex"
+        static let size                        = "claudario.size"
+        static let variantIndex                = "claudario.variantIndex"
+        static let dinoHighScore               = "claudario.dinoHighScore"
+        static let showProgressBars            = "claudario.showProgressBars"
+        static let waterReminderEnabled        = "claudario.water.enabled"
+        static let waterReminderIntervalMinutes = "claudario.water.intervalMinutes"
     }
+
+    static let waterReminderIntervals: [Int] = [15, 30, 60, 90, 120]
+    static let defaultWaterReminderIntervalMinutes: Int = 60
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -25,6 +30,10 @@ final class MascotSettings {
     var onVariantChanged: ((Int) -> Void)?
     /// Fired after `showProgressBars` is mutated. Receives the new value.
     var onShowProgressBarsChanged: ((Bool) -> Void)?
+    /// Fired after `waterReminderEnabled` is mutated.
+    var onWaterReminderEnabledChanged: ((Bool) -> Void)?
+    /// Fired after `waterReminderIntervalMinutes` is mutated (clamped).
+    var onWaterReminderIntervalChanged: ((Int) -> Void)?
 
     var colorIndex: Int {
         get {
@@ -71,6 +80,27 @@ final class MascotSettings {
         }
     }
 
+    var waterReminderEnabled: Bool {
+        get { defaults.object(forKey: Key.waterReminderEnabled) as? Bool ?? false }
+        set {
+            defaults.set(newValue, forKey: Key.waterReminderEnabled)
+            onWaterReminderEnabledChanged?(newValue)
+        }
+    }
+
+    var waterReminderIntervalMinutes: Int {
+        get {
+            let raw = defaults.object(forKey: Key.waterReminderIntervalMinutes) as? Int
+                ?? Self.defaultWaterReminderIntervalMinutes
+            return clampWaterReminderInterval(raw)
+        }
+        set {
+            let clamped = clampWaterReminderInterval(newValue)
+            defaults.set(clamped, forKey: Key.waterReminderIntervalMinutes)
+            onWaterReminderIntervalChanged?(clamped)
+        }
+    }
+
     /// Move to the next palette index (wraps). Persists, returns new index.
     @discardableResult
     func cycleColor() -> Int {
@@ -110,5 +140,14 @@ final class MascotSettings {
 
     private func clampSize(_ s: Int) -> Int {
         max(Self.sizeRange.first!, min(Self.sizeRange.last!, s))
+    }
+
+    private func clampWaterReminderInterval(_ v: Int) -> Int {
+        let allowed = Self.waterReminderIntervals
+        if allowed.contains(v) { return v }
+        // Snap to nearest allowed value rather than rejecting outright;
+        // keeps legacy/garbled defaults usable.
+        return allowed.min(by: { abs($0 - v) < abs($1 - v) })
+            ?? Self.defaultWaterReminderIntervalMinutes
     }
 }
