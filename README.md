@@ -51,19 +51,21 @@ Claudario is a lightweight desktop mascot that brings the internal state of Clau
 5. [Interactive mode (click to control)](#interactive-mode-click-to-control)
 6. [Petting](#petting)
 7. [Dino-runner mini-game](#dino-runner-mini-game)
-8. [Making it default for every Claude session](#making-it-default-for-every-claude-session)
-9. [Architecture](#architecture)
-10. [How it connects to Claude Code (hooks)](#how-it-connects-to-claude-code-hooks)
-11. [Event → animation state machine](#event--animation-state-machine)
-12. [HTTP protocol on the wire](#http-protocol-on-the-wire)
-13. [File / directory layout](#file--directory-layout)
-14. [Security model](#security-model)
-15. [Customization](#customization)
-16. [Troubleshooting](#troubleshooting)
-17. [Uninstall](#uninstall)
-18. [Limitations](#limitations)
-19. [Contributing](#contributing)
-20. [License](#license)
+8. [Drink-water reminder](#drink-water-reminder)
+9. [Touch Bar mascot](#touch-bar-mascot)
+10. [Making it default for every Claude session](#making-it-default-for-every-claude-session)
+11. [Architecture](#architecture)
+12. [How it connects to Claude Code (hooks)](#how-it-connects-to-claude-code-hooks)
+13. [Event → animation state machine](#event--animation-state-machine)
+14. [HTTP protocol on the wire](#http-protocol-on-the-wire)
+15. [File / directory layout](#file--directory-layout)
+16. [Security model](#security-model)
+17. [Customization](#customization)
+18. [Troubleshooting](#troubleshooting)
+19. [Uninstall](#uninstall)
+20. [Limitations](#limitations)
+21. [Contributing](#contributing)
+22. [License](#license)
 
 ---
 
@@ -112,6 +114,21 @@ Claudario is a lightweight desktop mascot that brings the internal state of Clau
   **Install Usage Statusline** action; **no API tokens are ever spent**
   — Claudario only reads the JSON Claude Code already produces for its
   statusline UI.
+- **Drink-water reminder** (macOS) — opt-in nudge on a 15 / 30 / 60 /
+  90 / 120-minute cadence. The mascot pops a 💧 droplet above its head
+  *and* posts a macOS notification banner with a **Mark as drunk**
+  action. Click the mascot (or tap the banner) to acknowledge and
+  restart the timer. Pick the interval from the menu's **Drink Water
+  Reminder** submenu — the parent item shows the active cadence at a
+  glance.
+- **Touch Bar mascot** (macOS, MacBook Pro with Touch Bar) — press
+  **`↓`** in interactive mode to send the mascot off-screen and onto
+  the Touch Bar, where a miniature live version continues to react to
+  Claude Code in real time. **`←` / `→`** walk it, **`↑`** (or a tap
+  on the Touch Bar item) brings it back to the Dock strip with a
+  landing jump. Hook activity that arrives during Touch Bar mode is
+  buffered and replayed on return — the on-screen mascot picks up
+  exactly where Claude is.
 - Loopback-only HTTP server (not reachable off-host).
 - One-click install / uninstall of Claude Code hooks **and** the usage
   statusline wrapper (with backup of your existing `settings.json`).
@@ -165,7 +182,14 @@ Click the menu-bar icon to get the menu:
 ```
 Enabled                              ✓
 Show Usage Bars                      ✓
+Drink Water Reminder: Every 60 min ▸ Off
+                                     15 min
+                                     30 min
+                                     60 min
+                                     90 min
+                                     120 min
 Launch at Login
+Touch Bar Mascot: press ↓ in control mode   (greyed; informational)
 ─────────────────────────────────
 Install Claude Code Hooks
 Uninstall Claude Code Hooks
@@ -174,6 +198,8 @@ Uninstall Usage Statusline       (visible once installed)
 ─────────────────────────────────
 Test: Walk + Jump
 Test: Notify
+Test: Water Reminder
+Test: Touch Bar Mode             (Touch Bar Macs only)
 ─────────────────────────────────
 Show Controls…
 About Claudario
@@ -422,6 +448,7 @@ with the Dock / taskbar as normal.
 | ← Left                 | Walk left (held = continuous; clamped to overlay)            |
 | → Right                | Walk right (held = continuous; clamped to overlay)           |
 | ↑ Up                   | Jump + coin chime (auto-repeat ignored)                      |
+| ↓ Down                 | Send mascot to the Touch Bar (MacBook Pro with Touch Bar only — see [Touch Bar mascot](#touch-bar-mascot)) |
 | Esc                    | Release control → idle                                       |
 | **1 2 3 4 5 6 7 8 9 0**| Preview each activity (1=idle, 2=thinking, 3=reading, 4=coding, 5=running, 6=planning, 7=browsing, 8=deep-thinking, 9=compacting, 0=dancing) |
 | **`,`**                | Shrink mascot one step (24 → 88 pt range, 8 pt steps)        |
@@ -535,6 +562,122 @@ If a Claude hook fires mid-game, the mascot does **not** abandon the
 game — the latest Claude state is buffered and replayed when you exit,
 so the mascot resumes whatever Claude is doing right after you press
 **Esc**.
+
+---
+
+## Drink-water reminder
+
+A lightweight, opt-in nudge that lives entirely on your machine — no
+account, no background service, just a `DispatchSourceTimer` and a
+local notification. Off by default.
+
+### Turning it on
+
+Open the menu-bar menu and pick an interval from **Drink Water
+Reminder ▸**:
+
+```
+Drink Water Reminder: Off ▸  ✓ Off
+                              15 min
+                              30 min
+                              60 min
+                              90 min
+                              120 min
+```
+
+Selecting any interval enables the reminder and starts the timer.
+**Off** disables it. The parent menu item always shows the current
+state ("Drink Water Reminder: Every 60 min" or "Drink Water Reminder:
+Off") so you can see it at a glance without opening the submenu.
+
+The first time you enable a reminder, macOS will ask for notification
+permission. If you deny, the in-app droplet still works — only the
+banner is suppressed.
+
+### What you see when it fires
+
+Two things happen simultaneously:
+
+1. **A 💧 droplet hovers above the mascot's head.** The overlay
+   becomes click-targeted on the mascot for the duration of the
+   reminder (so a click reliably dismisses it) — the rest of the Dock
+   strip stays click-through as usual.
+2. **A macOS notification banner posts** with a **Mark as drunk**
+   action button. Clicking the banner body counts as acknowledging,
+   too — easier-to-dismiss is better than two-step.
+
+### Acknowledging
+
+Any of these reset the timer for one full interval:
+
+- Click the mascot while the droplet is showing.
+- Click **Mark as drunk** on the notification banner.
+- Click the banner body.
+
+If you ignore the reminder, the droplet stays until you acknowledge or
+the next interval fires (the timer keeps running — it doesn't stack
+multiple droplets).
+
+### Testing it
+
+The menu's **Test: Water Reminder** fires the visual + banner
+immediately without waiting for the interval, so you can sanity-check
+notification permission and the dismissal flow before relying on it.
+
+---
+
+## Touch Bar mascot
+
+On MacBook Pro models with a Touch Bar, Claudario can send the mascot
+*off the screen and onto the Touch Bar* — a small live copy that keeps
+reacting to Claude Code in real time, just where your fingers already
+are.
+
+The menu shows whether your Mac supports it. On a Touch Bar Mac you'll
+see a disabled informational row:
+
+```
+Touch Bar Mascot: press ↓ in control mode
+```
+
+On other Macs the same row reads `Touch Bar Mascot (unavailable on
+this Mac)`. There's no toggle — the keymap is the entry point.
+
+### Entering Touch Bar mode
+
+1. Click the mascot to enter controlled mode (idle only — same rule as
+   the dino game).
+2. Press **`↓`**. The on-screen mascot disappears and a live copy
+   appears in the Touch Bar strip, in the same color and variant.
+
+### Controls while on the Touch Bar
+
+| Key                             | Effect                                                    |
+| ------------------------------- | --------------------------------------------------------- |
+| ← Left                          | Walk left along the Touch Bar (held = continuous)         |
+| → Right                         | Walk right along the Touch Bar (held = continuous)        |
+| ↑ Up                            | Return to the on-screen overlay with a landing jump       |
+| Esc                             | Return to the on-screen overlay (no landing jump)         |
+| **Tap the Touch Bar mascot**    | Equivalent to ↑ — bring it back to the screen             |
+
+The mascot's color, variant, and current activity (reading, coding,
+thinking, …) all mirror the on-screen mascot live — cycle the color
+with `c` before going to the Touch Bar and the Touch Bar copy updates
+in lockstep.
+
+### Behavior while Claude is working
+
+Touch Bar mode mirrors the dino game's "buffer and replay" rule:
+hook events that arrive while the mascot is on the Touch Bar update
+the Touch Bar copy in real time, and when you return to the screen
+the on-screen mascot picks up whatever Claude is doing right then —
+you never lose state by being off-screen.
+
+### Testing it
+
+The menu's **Test: Touch Bar Mode** (only shown on Touch Bar Macs)
+sends the mascot to the Touch Bar without needing to click and press
+`↓` first.
 
 ---
 
